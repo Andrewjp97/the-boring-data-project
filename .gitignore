@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ETL working data (never committed — restored via actions/cache in CI)
+etl/work/
+etl/build/
+
+# Node
+node_modules/
+site/dist/
+site/.astro/
+site/public-deploy/
+
+# ETL outputs written into the site tree
+site/public/sitemaps/
+site/public/search-index.json
+
+# Local env
+.env
+.env.*
+!.env.example
+*.log
+
+# Firebase
+.firebase/
+firebase-debug.log

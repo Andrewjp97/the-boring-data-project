@@ -1,0 +1,89 @@
+---
+/** One recall campaign on a list page (SPEC §5, section 3). */
+interface Recall {
+  campno: string;
+  component: string | null;
+  reportDate: string | null;
+  affected: number | null;
+  defect: string | null;
+  consequence: string | null;
+  action: string | null;
+  mfgCampno: string | null;
+  doNotDrive?: boolean;
+  parkOutside?: boolean;
+}
+
+interface Props {
+  recall: Recall;
+}
+
+const { recall } = Astro.props;
+const componentBadge = recall.component ? recall.component.split(':')[0] : 'UNKNOWN';
+const fmt = (n: number) => n.toLocaleString('en-US');
+---
+
+<article class="recall-card">
+  <header>
+    <span class="badge">{componentBadge}</span>
+    {recall.doNotDrive && <span class="badge danger">Do Not Drive</span>}
+    {recall.parkOutside && <span class="badge danger">Park Outside</span>}
+    <h3>
+      <a href={`/recall/${recall.campno}/`}>Recall {recall.campno}</a>
+    </h3>
+    <p class="meta">
+      {recall.reportDate && <span>Reported {recall.reportDate}</span>}
+      {recall.affected != null && recall.affected > 0 && <span>{fmt(recall.affected)} vehicles affected</span>}
+      {recall.mfgCampno && <span>Mfr. campaign {recall.mfgCampno}</span>}
+    </p>
+  </header>
+  {recall.defect && <p><strong>Defect:</strong> {recall.defect}</p>}
+  {recall.consequence && <p><strong>Risk:</strong> {recall.consequence}</p>}
+  {recall.action && <p><strong>Fix:</strong> {recall.action}</p>}
+  <p class="more"><a href={`/recall/${recall.campno}/`}>Full recall details →</a></p>
+</article>
+
+<style>
+  .recall-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    background: var(--card-bg);
+  }
+  .recall-card h3 {
+    margin: 0.35rem 0 0.15rem;
+    font-size: 1.05rem;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--badge-bg);
+    color: var(--badge-fg);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    margin-right: 0.35rem;
+  }
+  .badge.danger {
+    background: #b91c1c;
+    color: #fff;
+  }
+  .meta {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0 0 0.5rem;
+  }
+  .meta span + span::before {
+    content: '·';
+    margin: 0 0.4rem;
+  }
+  .recall-card p {
+    margin: 0.4rem 0;
+    font-size: 0.95rem;
+  }
+  .more {
+    font-size: 0.85rem;
+  }
+</style>

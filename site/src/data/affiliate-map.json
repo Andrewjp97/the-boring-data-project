@@ -1,0 +1,40 @@
+{
+  "_comment": "Component-keyword -> curated Amazon picks (SPEC §8.6). Replace the placeholder ASINs with the ~15 hand-picked products (human task, SPEC §12.5). Links render only when PUBLIC_AMAZON_TAG is set.",
+  "groups": [
+    {
+      "keywords": ["ELECTRICAL", "ENGINE", "FUEL", "POWER TRAIN", "VEHICLE SPEED CONTROL"],
+      "asinGroup": "obd2-scanners",
+      "heading": "Diagnose it yourself",
+      "products": [
+        { "asin": "PLACEHOLDER1", "title": "OBD-II Bluetooth scanner" },
+        { "asin": "PLACEHOLDER2", "title": "Code reader with live data" }
+      ]
+    },
+    {
+      "keywords": ["SERVICE BRAKES", "SUSPENSION", "STEERING"],
+      "asinGroup": "garage-basics",
+      "heading": "Garage basics",
+      "products": [
+        { "asin": "PLACEHOLDER3", "title": "Low-profile floor jack" },
+        { "asin": "PLACEHOLDER4", "title": "Jack stand pair (3-ton)" }
+      ]
+    },
+    {
+      "keywords": ["TIRES", "WHEELS"],
+      "asinGroup": "tire-tools",
+      "heading": "Tire care",
+      "products": [
+        { "asin": "PLACEHOLDER5", "title": "Digital tire pressure gauge" },
+        { "asin": "PLACEHOLDER6", "title": "Portable tire inflator" }
+      ]
+    },
+    {
+      "keywords": [],
+      "asinGroup": "repair-manuals",
+      "heading": "Repair manuals",
+      "products": [
+        { "asin": "PLACEHOLDER7", "title": "Vehicle-specific repair manual", "searchTemplate": "{make} {model} {year} repair manual" }
+      ]
+    }
+  ]
+}

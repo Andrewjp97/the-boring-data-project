@@ -1,0 +1,147 @@
+---
+/**
+ * Client-side VIN decode -> redirect (SPEC §5). Calls NHTSA vPIC from the
+ * browser (zero server cost), slugifies with the same rules as the ETL, and
+ * redirects to the year page. noindex: utility page, no SEO value.
+ */
+import Layout from '../../layouts/Layout.astro';
+import { buildPageDims } from '../../lib/ga';
+import { SITE_NAME } from '../../lib/seo';
+
+export const prerender = true;
+
+const dims = buildPageDims({ kind: 'utility' });
+---
+
+<Layout
+  title={`VIN Lookup — Find Your Vehicle's Recalls | ${SITE_NAME}`}
+  description="Enter your 17-character VIN to jump to your vehicle's recall and complaint history."
+  canonicalPath="/vin/"
+  indexable={false}
+  dims={dims}
+>
+  <h1>Find recalls by VIN</h1>
+  <p>
+    Enter your 17-character VIN (on the driver-side dashboard or door jamb). We decode the
+    year, make, and model in your browser and take you to the matching recall page — the VIN
+    itself never touches our servers.
+  </p>
+
+  <form id="vin-form">
+    <input
+      id="vin-input"
+      name="vin"
+      inputmode="text"
+      autocomplete="off"
+      spellcheck="false"
+      minlength="11"
+      maxlength="17"
+      placeholder="e.g. 1HGRM4870GL123456"
+      aria-label="Vehicle identification number"
+      required
+    />
+    <button type="submit">Find my vehicle</button>
+  </form>
+  <p id="vin-status" role="status"></p>
+
+  <p class="muted-note">
+    To check whether <em>your specific car</em> has an open, unrepaired recall, use
+    <a
+      href="https://www.nhtsa.gov/recalls"
+      rel="noopener"
+      data-evt="outbound_nhtsa"
+      data-evt-params='{"placement":"vin_page"}'
+    >NHTSA's official VIN tool</a> — it queries manufacturer records directly.
+  </p>
+</Layout>
+
+<script is:inline>
+  (function () {
+    var form = document.getElementById('vin-form');
+    var input = document.getElementById('vin-input');
+    var status = document.getElementById('vin-status');
+
+    // Mirror of etl slugify()
+    function slugify(v) {
+      return v
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+
+    function track(ok) {
+      document.dispatchEvent(
+        new CustomEvent('site-event', {
+          detail: { name: 'vin_decode', params: { result: ok ? 'success' : 'fail' } },
+        })
+      );
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var vin = input.value.trim().toUpperCase();
+      status.textContent = 'Decoding…';
+      fetch(
+        'https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/' +
+          encodeURIComponent(vin) +
+          '?format=json'
+      )
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          var row = data.Results && data.Results[0];
+          var make = row && row.Make;
+          var model = row && row.Model;
+          var year = row && row.ModelYear;
+          if (make && model && year) {
+            track(true);
+            location.href = '/recalls/' + slugify(make) + '/' + slugify(model) + '/' + year + '/';
+          } else {
+            track(false);
+            status.textContent =
+              "Couldn't decode that VIN. Double-check it, or browse by make from the home page.";
+          }
+        })
+        .catch(function () {
+          track(false);
+          status.textContent = 'The VIN decoder is unreachable right now. Please try again.';
+        });
+    });
+  })();
+</script>
+
+<style>
+  #vin-form {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+  }
+  #vin-input {
+    flex: 1 1 280px;
+    padding: 0.6rem 0.9rem;
+    font-size: 1rem;
+    font-family: ui-monospace, monospace;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: inherit;
+  }
+  #vin-form button {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  .muted-note {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

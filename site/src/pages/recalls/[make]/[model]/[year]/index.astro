@@ -1,0 +1,264 @@
+---
+/** ★ PRIMARY money page: /recalls/{make}/{model}/{year}/ (SPEC §5). */
+import AdSlot from '../../../../../components/AdSlot.astro';
+import AffiliateBlock from '../../../../../components/AffiliateBlock.astro';
+import Breadcrumbs from '../../../../../components/Breadcrumbs.astro';
+import ComplaintStats from '../../../../../components/ComplaintStats.astro';
+import RecallCard from '../../../../../components/RecallCard.astro';
+import Layout from '../../../../../layouts/Layout.astro';
+import { setPageCache } from '../../../../../lib/cache';
+import { getPageDoc } from '../../../../../lib/firestore';
+import { buildPageDims } from '../../../../../lib/ga';
+import {
+  answerBox,
+  breadcrumbJsonLd,
+  faqJsonLd,
+  fmtInt,
+  metaDescription,
+  yearPageFaqs,
+  yearPageTitle,
+} from '../../../../../lib/seo';
+
+const { make, model, year } = Astro.params;
+const slug = `recalls/${make}/${model}/${year}`;
+const doc = (await getPageDoc(slug)) as any;
+if (!doc) return Astro.rewrite('/404');
+setPageCache(Astro.response);
+
+const bits = { make: doc.make.display, model: doc.model.display, year: doc.year };
+const recalls = doc.recalls ?? [];
+const stats = doc.complaintStats ?? [];
+const samples = doc.complaintSamples ?? [];
+const investigations = doc.investigations ?? [];
+const topComponent = stats[0]?.component ?? recalls[0]?.component ?? null;
+const updatedDate = doc.updatedAt ? new Date(doc.updatedAt) : new Date();
+const updatedHuman = updatedDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+const siteUrl = (Astro.site?.toString() ?? '').replace(/\/$/, '');
+const crumbs = [
+  { name: 'Home', path: '/' },
+  { name: doc.make.display, path: `/recalls/${doc.make.slug}/` },
+  { name: doc.model.display, path: `/recalls/${doc.make.slug}/${doc.model.slug}/` },
+  { name: String(doc.year), path: `/${slug}/` },
+];
+const jsonLd = [
+  breadcrumbJsonLd(siteUrl, crumbs),
+  faqJsonLd(yearPageFaqs(bits, doc.recallCount, doc.complaintTotal, topComponent)),
+];
+const dims = buildPageDims({
+  kind: 'year',
+  make: doc.make.slug,
+  model: doc.model.slug,
+  year: doc.year,
+  recallCount: doc.recallCount,
+  complaintTotal: doc.complaintTotal,
+  indexable: doc.indexable,
+});
+const nhtsaVinUrl = 'https://www.nhtsa.gov/recalls';
+---
+
+<Layout
+  title={yearPageTitle(bits, updatedDate)}
+  description={metaDescription(bits, doc.recallCount, doc.complaintTotal)}
+  canonicalPath={`/${slug}/`}
+  indexable={doc.indexable}
+  jsonLd={jsonLd}
+  dims={dims}
+>
+  <Breadcrumbs crumbs={crumbs} />
+  <h1>
+    {doc.year} {doc.make.display} {doc.model.display} Recalls ({doc.recallCount}
+    {doc.recallCount === 1 ? 'Recall' : 'Recalls'}, {fmtInt(doc.complaintTotal)}
+    {doc.complaintTotal === 1 ? 'Complaint' : 'Complaints'})
+  </h1>
+
+  <p class="answer-box">
+    {
+      answerBox(
+        bits,
+        doc.recallCount,
+        doc.totalAffected ?? 0,
+        doc.complaintTotal,
+        topComponent,
+        updatedHuman,
+      )
+    }
+  </p>
+
+  {
+    recalls.length > 0 && (
+      <section>
+        <h2>NHTSA recall campaigns</h2>
+        {recalls.map((r: any) => (
+          <RecallCard recall={r} />
+        ))}
+      </section>
+    )
+  }
+
+  <AdSlot slot="year-page-1" />
+
+  {
+    stats.length > 0 && (
+      <section>
+        <h2>What owners complain about</h2>
+        <ComplaintStats stats={stats} total={doc.complaintTotal} />
+      </section>
+    )
+  }
+
+  {
+    samples.length > 0 && (
+      <section>
+        <h2>Sample complaints</h2>
+        <p class="muted-note">
+          Verbatim reports filed with NHTSA, lightly edited for readability and with personal
+          information removed.
+        </p>
+        {samples.map((s: any) => (
+          <blockquote class="complaint-sample">
+            <p>{s.narrative}</p>
+            <footer>
+              {s.component} {s.failDate && `· ${s.failDate}`}
+            </footer>
+          </blockquote>
+        ))}
+      </section>
+    )
+  }
+
+  {
+    investigations.length > 0 && (
+      <section>
+        <h2>NHTSA defect investigations</h2>
+        <ul>
+          {investigations.map((inv: any) => (
+            <li>
+              <strong>{inv.actionNumber}</strong> — {inv.subject}
+              {inv.openDate && ` (opened ${inv.openDate}${inv.closeDate ? `, closed ${inv.closeDate}` : ', open'})`}
+              {inv.summary && <p>{inv.summary}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <div class="vin-cta">
+    <strong>Is your specific vehicle affected?</strong> Recalls apply to VIN ranges, not every
+    car of a model year.
+    <a
+      href={nhtsaVinUrl}
+      rel="noopener"
+      data-evt="outbound_nhtsa"
+      data-evt-params='{"placement":"vin_cta"}'
+    >
+      Check your VIN on NHTSA's official recall lookup →
+    </a>
+  </div>
+
+  <section>
+    <h2>Related</h2>
+    {
+      doc.nav.years.length > 0 && (
+        <p>
+          Other years:{' '}
+          {doc.nav.years.map((y: number, i: number) => (
+            <>
+              {i > 0 && ' · '}
+              <a
+                href={`/recalls/${doc.make.slug}/${doc.model.slug}/${y}/`}
+                data-evt="related_link_click"
+                data-evt-params='{"link_type":"year"}'
+              >
+                {y} {doc.make.display} {doc.model.display}
+              </a>
+            </>
+          ))}
+        </p>
+      )
+    }
+    {
+      doc.nav.siblingModels.length > 0 && (
+        <p>
+          More {doc.make.display} models:{' '}
+          {doc.nav.siblingModels.map((m: any, i: number) => (
+            <>
+              {i > 0 && ' · '}
+              <a
+                href={`/recalls/${doc.make.slug}/${m.slug}/`}
+                data-evt="related_link_click"
+                data-evt-params='{"link_type":"sibling"}'
+              >
+                {m.display}
+              </a>
+            </>
+          ))}
+        </p>
+      )
+    }
+    {
+      doc.nav.relatedByComponent.length > 0 && (
+        <p>
+          Similar {doc.nav.relatedByComponent[0].label.toLowerCase()} recalls:{' '}
+          {doc.nav.relatedByComponent.map((m: any, i: number) => (
+            <>
+              {i > 0 && ' · '}
+              <a
+                href={`/${m.slug}/`}
+                data-evt="related_link_click"
+                data-evt-params='{"link_type":"component"}'
+              >
+                {m.display}
+              </a>
+            </>
+          ))}
+        </p>
+      )
+    }
+  </section>
+
+  <AffiliateBlock
+    topComponent={topComponent}
+    make={doc.make.display}
+    model={doc.model.display}
+    year={doc.year}
+  />
+
+  <AdSlot slot="year-page-2" minHeight={250} />
+
+  <section class="sources">
+    <h2>Sources &amp; methodology</h2>
+    <p>
+      Recall, complaint, and investigation data comes from NHTSA's public flat-file datasets
+      (FLAT_RCL, FLAT_CMPL, FLAT_INV), synced weekly. Counts reflect NHTSA records for the
+      {doc.year} {doc.make.display} {doc.model.display} as of {updatedHuman}. Complaint
+      narratives are consumer-submitted and unverified. <a href="/methodology/">Full methodology</a>.
+    </p>
+  </section>
+</Layout>
+
+<style>
+  .complaint-sample {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid var(--border);
+    background: var(--card-bg);
+    font-size: 0.92rem;
+  }
+  .complaint-sample footer {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+  .muted-note,
+  .sources p {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

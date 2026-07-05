@@ -1,0 +1,131 @@
+---
+/** Campaign detail: canonical home of the full untruncated defect text. */
+import AdSlot from '../../../components/AdSlot.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { setPageCache } from '../../../lib/cache';
+import { getPageDoc } from '../../../lib/firestore';
+import { buildPageDims } from '../../../lib/ga';
+import { breadcrumbJsonLd, campaignPageTitle, fmtInt, titleCaseComponent } from '../../../lib/seo';
+
+const { campaign } = Astro.params;
+const slug = `recall/${campaign}`;
+const doc = (await getPageDoc(slug)) as any;
+if (!doc) return Astro.rewrite('/404');
+setPageCache(Astro.response);
+
+const siteUrl = (Astro.site?.toString() ?? '').replace(/\/$/, '');
+const crumbs = [
+  { name: 'Home', path: '/' },
+  { name: `Recall ${doc.campno}`, path: `/${slug}/` },
+];
+const dims = buildPageDims({ kind: 'campaign', recallCount: 1, indexable: doc.indexable });
+const description =
+  `NHTSA recall ${doc.campno}` +
+  (doc.component ? ` (${titleCaseComponent(doc.component)})` : '') +
+  (doc.affected ? `, ${fmtInt(doc.affected)} vehicles affected` : '') +
+  `. Full defect description, risk, and free repair details from NHTSA.`;
+---
+
+<Layout
+  title={campaignPageTitle(doc.campno, doc.component)}
+  description={description}
+  canonicalPath={`/${slug}/`}
+  indexable={doc.indexable}
+  jsonLd={[breadcrumbJsonLd(siteUrl, crumbs)]}
+  dims={dims}
+>
+  <Breadcrumbs crumbs={crumbs} />
+  <h1>NHTSA Recall {doc.campno}</h1>
+
+  <p class="answer-box">
+    {doc.manufacturer && `Filed by ${doc.manufacturer}. `}
+    {doc.component && `Component: ${titleCaseComponent(doc.component)}. `}
+    {doc.reportDate && `Reported ${doc.reportDate}. `}
+    {doc.affected != null && doc.affected > 0 && `An estimated ${fmtInt(doc.affected)} vehicles are affected. `}
+    Recall repairs are free at any authorized dealer.
+  </p>
+
+  {
+    (doc.doNotDrive || doc.parkOutside) && (
+      <p class="advisory">
+        ⚠️ NHTSA consumer advisory:{' '}
+        {[doc.doNotDrive && 'Do Not Drive', doc.parkOutside && 'Park Outside']
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+    )
+  }
+
+  {doc.defect && (
+    <section>
+      <h2>Defect</h2>
+      <p>{doc.defect}</p>
+    </section>
+  )}
+  {doc.consequence && (
+    <section>
+      <h2>Risk</h2>
+      <p>{doc.consequence}</p>
+    </section>
+  )}
+
+  <AdSlot slot="campaign-page-1" />
+
+  {doc.action && (
+    <section>
+      <h2>What the manufacturer will do</h2>
+      <p>{doc.action}</p>
+      {doc.mfgCampno && <p class="muted-note">Manufacturer campaign number: {doc.mfgCampno}</p>}
+    </section>
+  )}
+  {doc.notes && (
+    <section>
+      <h2>Notes</h2>
+      <p>{doc.notes}</p>
+    </section>
+  )}
+
+  <div class="vin-cta">
+    <strong>Does this recall apply to your car?</strong>
+    <a
+      href="https://www.nhtsa.gov/recalls"
+      rel="noopener"
+      data-evt="outbound_nhtsa"
+      data-evt-params='{"placement":"vin_cta"}'
+    >
+      Check your VIN on NHTSA's official recall lookup →
+    </a>
+  </div>
+
+  {
+    doc.affectedVehicles.length > 0 && (
+      <section>
+        <h2>Vehicles covered by this recall</h2>
+        <ul class="link-columns">
+          {doc.affectedVehicles.map((v: any) => (
+            <li>
+              <a href={`/${v.slug}/`}>
+                {v.year ? `${v.year} ` : ''}{v.makeDisplay} {v.modelDisplay}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</Layout>
+
+<style>
+  .advisory {
+    background: #b91c1c;
+    color: #fff;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+  }
+  .muted-note {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

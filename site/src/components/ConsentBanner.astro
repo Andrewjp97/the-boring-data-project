@@ -1,0 +1,40 @@
+---
+/**
+ * Google-certified CMP: Funding Choices (SPEC §7.2). Loads only when a
+ * publisher ID is configured. Funding Choices updates Consent Mode v2
+ * signals itself; nothing else to wire.
+ */
+const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT; // e.g. ca-pub-1234567890
+const fcId = adsenseClient ? adsenseClient.replace(/^ca-/, '') : null;
+---
+
+{
+  fcId && (
+    <>
+      <script
+        is:inline
+        async
+        src={`https://fundingchoicesmessages.google.com/i/${fcId}?ers=1`}
+      />
+      <script is:inline>
+        (function () {
+          function signalGooglefcPresent() {
+            if (!window.frames['googlefcPresent']) {
+              if (document.body) {
+                const iframe = document.createElement('iframe');
+                iframe.style.cssText =
+                  'width: 0; height: 0; border: none; z-index: -1000; left: -1000px; top: -1000px;';
+                iframe.style.display = 'none';
+                iframe.name = 'googlefcPresent';
+                document.body.appendChild(iframe);
+              } else {
+                setTimeout(signalGooglefcPresent, 0);
+              }
+            }
+          }
+          signalGooglefcPresent();
+        })();
+      </script>
+    </>
+  )
+}

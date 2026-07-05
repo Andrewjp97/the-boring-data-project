@@ -1,0 +1,53 @@
+---
+/**
+ * GA4 via gtag with Consent Mode v2 (SPEC §7). Consent defaults to denied
+ * for everything; the CMP (Funding Choices, see ConsentBanner) updates it.
+ * Custom dimensions ride on every page_view. One delegated listener powers
+ * all events — no per-component JS.
+ */
+import type { PageDims } from '../lib/ga';
+
+interface Props {
+  dims: PageDims;
+}
+
+const { dims } = Astro.props;
+const gaId = import.meta.env.PUBLIC_GA_ID;
+---
+
+{
+  gaId && (
+    <>
+      <script is:inline define:vars={{ gaId, dims }}>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+          dataLayer.push(arguments);
+        }
+        window.gtag = gtag;
+        gtag('consent', 'default', {
+          ad_storage: 'denied',
+          ad_user_data: 'denied',
+          ad_personalization: 'denied',
+          analytics_storage: 'denied',
+          wait_for_update: 500,
+        });
+        gtag('js', new Date());
+        gtag('config', gaId, dims);
+
+        document.addEventListener('click', function (e) {
+          var a = e.target && e.target.closest ? e.target.closest('a[data-evt]') : null;
+          if (!a) return;
+          var params = {};
+          try {
+            params = JSON.parse(a.getAttribute('data-evt-params') || '{}');
+          } catch (err) {}
+          gtag('event', a.getAttribute('data-evt'), params);
+        });
+        document.addEventListener('site-event', function (e) {
+          if (e.detail && e.detail.name) gtag('event', e.detail.name, e.detail.params || {});
+        });
+      </script>
+      <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+    </>
+  )
+}

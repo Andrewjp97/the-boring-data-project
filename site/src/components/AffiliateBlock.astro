@@ -1,0 +1,106 @@
+---
+/**
+ * Component-keyword-mapped Amazon picks (SPEC §8.6). Renders only when
+ * PUBLIC_AMAZON_TAG is set. rel="sponsored", labeled, FTC disclosure.
+ */
+import affiliateMap from '../data/affiliate-map.json';
+
+interface Props {
+  topComponent?: string | null;
+  make?: string | null;
+  model?: string | null;
+  year?: number | null;
+}
+
+const { topComponent, make, model, year } = Astro.props;
+const tag = import.meta.env.PUBLIC_AMAZON_TAG; // e.g. recalllookup-20
+
+interface Product {
+  asin: string;
+  title: string;
+  searchTemplate?: string;
+}
+interface Group {
+  keywords: string[];
+  asinGroup: string;
+  heading: string;
+  products: Product[];
+}
+
+const comp = (topComponent ?? '').toUpperCase();
+const groups = (affiliateMap.groups as Group[]).filter(
+  (g) =>
+    g.products.some((p) => !p.asin.startsWith('PLACEHOLDER') || p.searchTemplate) &&
+    (g.keywords.length === 0 || g.keywords.some((k) => comp.includes(k))),
+);
+
+function productUrl(p: Product): string {
+  if (p.searchTemplate && make && model) {
+    const q = p.searchTemplate
+      .replace('{make}', make)
+      .replace('{model}', model)
+      .replace('{year}', year ? String(year) : '');
+    return `https://www.amazon.com/s?k=${encodeURIComponent(q.trim())}&tag=${tag}`;
+  }
+  return `https://www.amazon.com/dp/${p.asin}?tag=${tag}`;
+}
+---
+
+{
+  tag && groups.length > 0 && (
+    <aside class="affiliate-block">
+      <h2>Owner tools</h2>
+      {groups.map((g) => (
+        <div class="group">
+          <h3>{g.heading}</h3>
+          <ul>
+            {g.products
+              .filter((p) => !p.asin.startsWith('PLACEHOLDER') || p.searchTemplate)
+              .map((p) => (
+                <li>
+                  <a
+                    href={productUrl(p)}
+                    rel="sponsored nofollow noopener"
+                    target="_blank"
+                    data-evt="affiliate_click"
+                    data-evt-params={JSON.stringify({
+                      component: comp || 'none',
+                      asin_group: g.asinGroup,
+                    })}
+                  >
+                    {p.title}
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </div>
+      ))}
+      <p class="disclosure">
+        As an Amazon Associate we earn from qualifying purchases. Links above are sponsored.
+      </p>
+    </aside>
+  )
+}
+
+<style>
+  .affiliate-block {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    background: var(--card-bg);
+  }
+  .affiliate-block h2 {
+    font-size: 1rem;
+    margin-top: 0;
+  }
+  .affiliate-block h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+  .disclosure {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0;
+  }
+</style>

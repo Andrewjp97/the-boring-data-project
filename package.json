@@ -1,0 +1,10 @@
+{
+  "name": "recall-lookup",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm --filter site build",
+    "test": "pnpm --filter site test",
+    "dev": "pnpm --filter site dev"
+  }
+}

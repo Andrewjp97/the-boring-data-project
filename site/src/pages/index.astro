@@ -1,0 +1,70 @@
+---
+/** Home: search + browse (prerendered — no Firestore read). */
+import SearchBox from '../components/SearchBox.astro';
+import Layout from '../layouts/Layout.astro';
+import { buildPageDims } from '../lib/ga';
+import { SITE_NAME } from '../lib/seo';
+
+export const prerender = true;
+
+// Popular makes, hand-ordered; the full list lives on hub pages via search.
+const popularMakes = [
+  ['toyota', 'Toyota'], ['ford', 'Ford'], ['chevrolet', 'Chevrolet'], ['honda', 'Honda'],
+  ['nissan', 'Nissan'], ['jeep', 'Jeep'], ['ram', 'Ram'], ['gmc', 'GMC'],
+  ['hyundai', 'Hyundai'], ['kia', 'Kia'], ['subaru', 'Subaru'], ['volkswagen', 'Volkswagen'],
+  ['bmw', 'BMW'], ['mercedes-benz', 'Mercedes-Benz'], ['tesla', 'Tesla'], ['dodge', 'Dodge'],
+  ['mazda', 'Mazda'], ['lexus', 'Lexus'], ['audi', 'Audi'], ['chrysler', 'Chrysler'],
+] as const;
+
+const dims = buildPageDims({ kind: 'home' });
+---
+
+<Layout
+  title={`${SITE_NAME} — Vehicle Recalls & Complaints by Year, Make, and Model`}
+  description="Look up NHTSA recalls, owner complaints, and defect investigations for any vehicle — free, fast, and sourced from official government data updated weekly."
+  canonicalPath="/"
+  dims={dims}
+>
+  <h1>Does your car have a recall?</h1>
+  <p>
+    Every NHTSA recall, complaint, and defect investigation — organized by year, make, and
+    model. Free repairs, real government data, updated weekly.
+  </p>
+
+  <SearchBox />
+
+  <section>
+    <h2>Browse by make</h2>
+    <ul class="link-columns">
+      {
+        popularMakes.map(([slug, display]) => (
+          <li>
+            <a href={`/recalls/${slug}/`}>{display} recalls</a>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="muted-note">Can't find your make? Use the search box above — it covers everything.</p>
+  </section>
+
+  <section>
+    <h2>Have your VIN handy?</h2>
+    <p>
+      <a href="/vin/">Decode your VIN</a> to jump straight to your vehicle's recall page, or use
+      <a
+        href="https://www.nhtsa.gov/recalls"
+        rel="noopener"
+        data-evt="outbound_nhtsa"
+        data-evt-params='{"placement":"home"}'
+      >NHTSA's official VIN lookup</a>
+      to check for open, unrepaired recalls on your specific car.
+    </p>
+  </section>
+</Layout>
+
+<style>
+  .muted-note {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

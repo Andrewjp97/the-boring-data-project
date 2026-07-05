@@ -1,0 +1,61 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { buildPageDims } from '../lib/ga';
+import { datasetJsonLd, SITE_NAME } from '../lib/seo';
+
+export const prerender = true;
+
+const siteUrl = (Astro.site?.toString() ?? '').replace(/\/$/, '');
+const dims = buildPageDims({ kind: 'utility' });
+---
+
+<Layout
+  title={`Data & Methodology | ${SITE_NAME}`}
+  description="Where this site's recall and complaint data comes from, how often it syncs, and what it does (and doesn't) tell you."
+  canonicalPath="/methodology/"
+  jsonLd={[datasetJsonLd(siteUrl)]}
+  dims={dims}
+>
+  <h1>Data &amp; methodology</h1>
+
+  <h2>Sources</h2>
+  <p>
+    Everything on {SITE_NAME} comes from public datasets published by the U.S. National Highway
+    Traffic Safety Administration (NHTSA):
+  </p>
+  <ul>
+    <li><strong>Recalls</strong> — NHTSA flat files (FLAT_RCL), all safety and compliance campaigns since 1967.</li>
+    <li><strong>Complaints</strong> — NHTSA flat files (FLAT_CMPL), consumer complaints since 1995.</li>
+    <li><strong>Investigations</strong> — NHTSA flat files (FLAT_INV), defect investigations since 1972.</li>
+    <li><strong>Make/model canonicalization</strong> — NHTSA vPIC API.</li>
+  </ul>
+  <p>
+    NHTSA data is a U.S. Government work in the public domain (17 U.S.C. § 105). We attribute it
+    anyway: all safety data on this site originates from NHTSA. See
+    <a href="https://www.nhtsa.gov/nhtsa-datasets-and-apis" rel="noopener">NHTSA datasets and APIs</a>.
+  </p>
+
+  <h2>Sync cadence &amp; processing</h2>
+  <ul>
+    <li>Data syncs automatically <strong>every week</strong>; each page shows its last-updated date.</li>
+    <li>Make and model names are normalized (e.g. “CHEVY” → “Chevrolet”); rows that can't be confidently matched are excluded rather than guessed.</li>
+    <li>Complaint narratives are consumer-submitted and unverified. We convert them to sentence case, truncate them, and automatically redact VINs, phone numbers, and email addresses.</li>
+    <li>Vehicles only: tire, equipment, and child-seat records are out of scope.</li>
+  </ul>
+
+  <h2>What this site is not</h2>
+  <p>
+    {SITE_NAME} is <strong>not affiliated with NHTSA</strong> or any vehicle manufacturer, and
+    nothing here is legal or safety advice. Recall applicability depends on your specific VIN —
+    always verify with
+    <a href="https://www.nhtsa.gov/recalls" rel="noopener" data-evt="outbound_nhtsa" data-evt-params='{"placement":"methodology"}'>NHTSA's official VIN lookup</a>
+    and your dealer. Recall repairs are free at authorized dealers.
+  </p>
+
+  <h2>Advertising disclosure</h2>
+  <p>
+    This site is supported by display advertising and Amazon affiliate links, which are labeled
+    and carry <code>rel="sponsored"</code>. As an Amazon Associate we earn from qualifying
+    purchases. Advertising never influences the safety data shown.
+  </p>
+</Layout>

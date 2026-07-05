@@ -1,0 +1,34 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { buildPageDims } from '../lib/ga';
+import { SITE_NAME } from '../lib/seo';
+
+export const prerender = true;
+
+const dims = buildPageDims({ kind: 'utility' });
+---
+
+<Layout
+  title={`About | ${SITE_NAME}`}
+  description={`What ${SITE_NAME} is, who runs it, and how to reach us.`}
+  canonicalPath="/about/"
+  dims={dims}
+>
+  <h1>About {SITE_NAME}</h1>
+  <p>
+    {SITE_NAME} answers one question well: <em>“Does this year, make, and model have recalls —
+    and what do owners actually complain about?”</em> One clean page per vehicle, built entirely
+    on official NHTSA public data, updated automatically every week.
+  </p>
+  <p>
+    The site is operated by PaperclipAI LLC. It is independent: not affiliated with NHTSA, any
+    government agency, or any vehicle manufacturer. Manufacturer names appear only to identify
+    vehicles (nominative use); no manufacturer logos are used.
+  </p>
+  <p>
+    Read the <a href="/methodology/">data &amp; methodology</a> page for exactly where the data
+    comes from and how it's processed, and the <a href="/privacy/">privacy policy</a> for how
+    analytics and advertising work here.
+  </p>
+  <p>Questions or corrections: <a href="mailto:hello@recalllookup.example">hello@recalllookup.example</a>.</p>
+</Layout>

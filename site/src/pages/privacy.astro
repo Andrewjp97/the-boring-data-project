@@ -1,0 +1,57 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { buildPageDims } from '../lib/ga';
+import { SITE_NAME } from '../lib/seo';
+
+export const prerender = true;
+
+const dims = buildPageDims({ kind: 'utility' });
+---
+
+<Layout
+  title={`Privacy Policy | ${SITE_NAME}`}
+  description={`How ${SITE_NAME} uses cookies, analytics, and advertising.`}
+  canonicalPath="/privacy/"
+  dims={dims}
+>
+  <h1>Privacy policy</h1>
+  <p>Last updated: July 2026.</p>
+
+  <h2>What we collect</h2>
+  <p>
+    {SITE_NAME} has no accounts, no comments, and no email capture. We never see the VIN you
+    enter on the <a href="/vin/">VIN page</a> — decoding happens in your browser against NHTSA's
+    public API.
+  </p>
+
+  <h2>Analytics (Google Analytics 4)</h2>
+  <p>
+    We use Google Analytics 4 to understand which pages are useful. Until you grant consent via
+    the consent banner, analytics runs in cookieless mode (Consent Mode v2 with all storage
+    denied) and no advertising or analytics cookies are set.
+  </p>
+
+  <h2>Advertising (Google AdSense) and affiliate links</h2>
+  <p>
+    We show display ads via Google AdSense and earn commissions from labeled Amazon affiliate
+    links (<code>rel="sponsored"</code>). With consent, Google may use cookies to personalize
+    ads; without consent, ads are non-personalized. See
+    <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">how Google uses data from partner sites</a>.
+  </p>
+
+  <h2>Cookies used</h2>
+  <ul>
+    <li><code>_ga</code>, <code>_ga_*</code> — Google Analytics (only after consent).</li>
+    <li>Google advertising cookies (e.g. <code>__gads</code>, <code>__gpi</code>) — only after consent.</li>
+    <li>A consent-state cookie set by the consent banner.</li>
+  </ul>
+
+  <h2>Your choices</h2>
+  <p>
+    You can change or withdraw consent at any time via the consent banner, browse with cookies
+    blocked (the site works fine), and use
+    <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">Google's Analytics opt-out</a>.
+  </p>
+
+  <p>Contact: <a href="mailto:hello@recalllookup.example">hello@recalllookup.example</a>.</p>
+</Layout>

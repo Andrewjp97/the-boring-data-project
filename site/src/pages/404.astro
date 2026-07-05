@@ -1,0 +1,41 @@
+---
+/**
+ * 404 with nearest-match recovery (SPEC §6): the search island prefilled
+ * from the attempted URL costs zero Firestore reads.
+ */
+import SearchBox from '../components/SearchBox.astro';
+import Layout from '../layouts/Layout.astro';
+import { setNoCache } from '../lib/cache';
+import { buildPageDims } from '../lib/ga';
+import { SITE_NAME } from '../lib/seo';
+
+setNoCache(Astro.response);
+
+const attempted = Astro.url.pathname
+  .replace(/^\/(recalls|recall)\//, '')
+  .replace(/\//g, ' ')
+  .replace(/-/g, ' ')
+  .replace(/\b\d{4}\b/g, '')
+  .trim();
+
+const dims = buildPageDims({ kind: 'utility' });
+---
+
+<Layout
+  title={`Page Not Found | ${SITE_NAME}`}
+  description="That vehicle page doesn't exist. Search for your year, make, and model."
+  canonicalPath="/404/"
+  indexable={false}
+  dims={dims}
+>
+  <h1>No page for that vehicle</h1>
+  <p>
+    We couldn't find that page. It may be a model NHTSA has no records for, or the URL may be
+    slightly off. Try searching:
+  </p>
+  <SearchBox initialQuery={attempted} />
+  <p>
+    Or start from the <a href="/">home page</a> and browse by make, or
+    <a href="/vin/">look up your VIN</a>.
+  </p>
+</Layout>

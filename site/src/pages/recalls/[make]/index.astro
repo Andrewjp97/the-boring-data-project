@@ -1,0 +1,82 @@
+---
+/** Make hub: model list with counts. */
+import AdSlot from '../../../components/AdSlot.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import SearchBox from '../../../components/SearchBox.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { setPageCache } from '../../../lib/cache';
+import { getPageDoc } from '../../../lib/firestore';
+import { buildPageDims } from '../../../lib/ga';
+import { breadcrumbJsonLd, fmtInt, hubPageTitle, metaDescription } from '../../../lib/seo';
+
+const { make } = Astro.params;
+const slug = `recalls/${make}`;
+const doc = (await getPageDoc(slug)) as any;
+if (!doc) return Astro.rewrite('/404');
+setPageCache(Astro.response);
+
+const bits = { make: doc.make.display, model: null, year: null };
+const updatedDate = doc.updatedAt ? new Date(doc.updatedAt) : new Date();
+const siteUrl = (Astro.site?.toString() ?? '').replace(/\/$/, '');
+const crumbs = [
+  { name: 'Home', path: '/' },
+  { name: doc.make.display, path: `/${slug}/` },
+];
+const dims = buildPageDims({
+  kind: 'make',
+  make: doc.make.slug,
+  recallCount: doc.recallCount,
+  complaintTotal: doc.complaintTotal,
+  indexable: doc.indexable,
+});
+---
+
+<Layout
+  title={hubPageTitle(doc.make.display, updatedDate)}
+  description={metaDescription(bits, doc.recallCount, doc.complaintTotal)}
+  canonicalPath={`/${slug}/`}
+  indexable={doc.indexable}
+  jsonLd={[breadcrumbJsonLd(siteUrl, crumbs)]}
+  dims={dims}
+>
+  <Breadcrumbs crumbs={crumbs} />
+  <h1>{doc.make.display} Recalls &amp; Complaints by Model</h1>
+  <p class="answer-box">
+    NHTSA lists {fmtInt(doc.recallCount)} recall
+    {doc.recallCount === 1 ? 'campaign' : 'campaigns'} and {fmtInt(doc.complaintTotal)}
+    owner {doc.complaintTotal === 1 ? 'complaint' : 'complaints'} across {doc.models.length}
+    {doc.make.display} {doc.models.length === 1 ? 'model' : 'models'}. Pick a model, then a
+    year.
+  </p>
+
+  <SearchBox placeholder={`Search ${doc.make.display} models…`} />
+
+  <table class="hub-table">
+    <thead>
+      <tr>
+        <th scope="col">Model</th>
+        <th scope="col">Years</th>
+        <th scope="col">Recalls</th>
+        <th scope="col">Complaints</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        doc.models.map((m: any) => (
+          <tr>
+            <th scope="row">
+              <a href={`/recalls/${doc.make.slug}/${m.slug}/`}>
+                {doc.make.display} {m.display}
+              </a>
+            </th>
+            <td>{m.yearMin ? `${m.yearMin}–${m.yearMax}` : '—'}</td>
+            <td>{m.recallCount}</td>
+            <td>{fmtInt(m.complaintCount)}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <AdSlot slot="make-page-1" />
+</Layout>

@@ -1,0 +1,207 @@
+---
+import Analytics from '../components/Analytics.astro';
+import ConsentBanner from '../components/ConsentBanner.astro';
+import type { PageDims } from '../lib/ga';
+import { SITE_NAME } from '../lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Path with leading + trailing slash, e.g. /recalls/honda/cr-v/2016/ */
+  canonicalPath: string;
+  indexable?: boolean;
+  jsonLd?: object[];
+  dims: PageDims;
+}
+
+const { title, description, canonicalPath, indexable = true, jsonLd = [], dims } = Astro.props;
+const siteUrl = (Astro.site?.toString() ?? 'https://recalllookup.example/').replace(/\/$/, '');
+const canonical = `${siteUrl}${canonicalPath}`;
+const adsEnabled =
+  import.meta.env.PUBLIC_ADS_ENABLED === 'true' && import.meta.env.PUBLIC_ADSENSE_CLIENT;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {!indexable && <meta name="robots" content="noindex,follow" />}
+    {jsonLd.map((obj) => (
+      <script type="application/ld+json" set:html={JSON.stringify(obj)} />
+    ))}
+    <Analytics dims={dims} />
+    <ConsentBanner />
+    {
+      adsEnabled && (
+        <script
+          is:inline
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${import.meta.env.PUBLIC_ADSENSE_CLIENT}`}
+          crossorigin="anonymous"
+        />
+      )
+    }
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">{SITE_NAME}</a>
+      <nav>
+        <a href="/vin/">Check a VIN</a>
+        <a href="/methodology/">Data &amp; methodology</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <p>
+        Data source: U.S. National Highway Traffic Safety Administration (NHTSA) public datasets —
+        recalls, complaints, and investigations. Updated weekly.
+        <a href="/methodology/">How this site works</a>.
+      </p>
+      <p>
+        {SITE_NAME} is not affiliated with NHTSA or any vehicle manufacturer. Nothing here is legal
+        or safety advice — verify with
+        <a
+          href="https://www.nhtsa.gov/recalls"
+          rel="noopener"
+          data-evt="outbound_nhtsa"
+          data-evt-params='{"placement":"footer"}'
+        >NHTSA's official VIN tool</a>
+        and your dealer.
+      </p>
+      <nav>
+        <a href="/about/">About</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/methodology/">Methodology</a>
+      </nav>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a202c;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --card-bg: #f8fafc;
+    --accent: #2563eb;
+    --badge-bg: #e0e7ff;
+    --badge-fg: #3730a3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --fg: #e2e8f0;
+      --muted: #94a3b8;
+      --border: #334155;
+      --card-bg: #1e293b;
+      --accent: #60a5fa;
+      --badge-bg: #312e81;
+      --badge-fg: #c7d2fe;
+    }
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    line-height: 1.55;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 1rem 1.25rem 3rem;
+  }
+  a {
+    color: var(--accent);
+  }
+  h1 {
+    font-size: 1.6rem;
+    line-height: 1.25;
+  }
+  h2 {
+    font-size: 1.2rem;
+    margin-top: 2rem;
+  }
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .site-header .brand {
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--fg);
+    font-size: 1.1rem;
+  }
+  .site-header nav {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+  }
+  .site-footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 1.25rem 2.5rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .site-footer nav {
+    display: flex;
+    gap: 1rem;
+  }
+  .answer-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    font-size: 1.02rem;
+  }
+  .vin-cta {
+    background: var(--badge-bg);
+    color: var(--badge-fg);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+  }
+  .vin-cta a {
+    font-weight: 600;
+  }
+  .link-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.25rem 1rem;
+    padding: 0;
+    list-style: none;
+  }
+  table.hub-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+  table.hub-table th,
+  table.hub-table td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+</style>

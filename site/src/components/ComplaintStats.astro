@@ -1,0 +1,107 @@
+---
+/**
+ * Component complaint table + inline SVG bar chart (SPEC §5, section 5).
+ * No chart library — widths are computed server-side.
+ */
+interface Stat {
+  component: string;
+  count: number;
+  crashes: number;
+  fires: number;
+  injuries: number;
+  deaths: number;
+}
+
+interface Props {
+  stats: Stat[];
+  total: number;
+}
+
+const { stats, total } = Astro.props;
+const max = Math.max(1, ...stats.map((s) => s.count));
+const BAR_W = 220;
+---
+
+{
+  stats.length > 0 && (
+    <div class="complaint-stats">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Component</th>
+            <th scope="col">Complaints</th>
+            <th scope="col" class="num">Crashes</th>
+            <th scope="col" class="num">Fires</th>
+            <th scope="col" class="num">Injuries</th>
+            <th scope="col" class="num">Deaths</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stats.map((s) => (
+            <tr>
+              <th scope="row">{s.component}</th>
+              <td>
+                <svg
+                  width={BAR_W}
+                  height="16"
+                  viewBox={`0 0 ${BAR_W} 16`}
+                  role="img"
+                  aria-label={`${s.count} complaints`}
+                >
+                  <rect
+                    width={Math.max(2, Math.round((s.count / max) * (BAR_W - 44)))}
+                    height="16"
+                    rx="3"
+                    fill="var(--accent)"
+                  />
+                  <text
+                    x={Math.max(2, Math.round((s.count / max) * (BAR_W - 44))) + 6}
+                    y="12"
+                    font-size="11"
+                    fill="currentColor"
+                  >
+                    {s.count}
+                  </text>
+                </svg>
+              </td>
+              <td class="num">{s.crashes}</td>
+              <td class="num">{s.fires}</td>
+              <td class="num">{s.injuries}</td>
+              <td class="num">{s.deaths}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p class="note">
+        Top components across {total.toLocaleString('en-US')} NHTSA complaints for this vehicle.
+      </p>
+    </div>
+  )
+}
+
+<style>
+  .complaint-stats {
+    overflow-x: auto;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.88rem;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th[scope='row'] {
+    font-weight: 500;
+  }
+  .num {
+    text-align: right;
+  }
+  .note {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+</style>

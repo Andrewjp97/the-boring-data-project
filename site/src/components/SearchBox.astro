@@ -1,0 +1,151 @@
+---
+/**
+ * Vanilla-JS typeahead island (SPEC §4): zero Firestore reads. Lazily
+ * fetches /search-index.json on first keystroke, fuzzy-matches client-side.
+ * Ships only on home/hub/404 pages.
+ */
+interface Props {
+  placeholder?: string;
+  initialQuery?: string;
+}
+
+const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQuery = '' } =
+  Astro.props;
+---
+
+<div class="searchbox">
+  <input
+    type="search"
+    id="vehicle-search"
+    placeholder={placeholder}
+    value={initialQuery}
+    autocomplete="off"
+    aria-label="Search vehicles"
+  />
+  <ul id="vehicle-search-results" hidden></ul>
+</div>
+
+<script is:inline>
+  (function () {
+    var input = document.getElementById('vehicle-search');
+    var list = document.getElementById('vehicle-search-results');
+    var index = null;
+    var loading = false;
+
+    function loadIndex() {
+      if (index || loading) return;
+      loading = true;
+      fetch('/search-index.json')
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          index = data;
+          render(input.value);
+        })
+        .catch(function () {
+          loading = false;
+        });
+    }
+
+    function score(entry, terms) {
+      var hay = (entry.make + ' ' + entry.model).toLowerCase();
+      var s = 0;
+      for (var i = 0; i < terms.length; i++) {
+        var t = terms[i];
+        if (!t) continue;
+        var pos = hay.indexOf(t);
+        if (pos < 0) return -1;
+        s += pos === 0 || hay[pos - 1] === ' ' || hay[pos - 1] === '-' ? 2 : 1;
+      }
+      return s;
+    }
+
+    function render(q) {
+      if (!index) return;
+      q = q.trim().toLowerCase();
+      if (q.length < 2) {
+        list.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+      var terms = q.split(/\s+/);
+      var matches = [];
+      for (var i = 0; i < index.length; i++) {
+        var s = score(index[i], terms);
+        if (s >= 0) matches.push([s, index[i]]);
+      }
+      matches.sort(function (a, b) {
+        return b[0] - a[0];
+      });
+      matches = matches.slice(0, 8);
+      list.innerHTML = matches
+        .map(function (m) {
+          var e = m[1];
+          var years = e.years && e.years.length ? ' (' + e.years[0] + '–' + e.years[1] + ')' : '';
+          return (
+            '<li><a href="/' + e.slug + '/">' + e.make + ' ' + e.model + years + '</a></li>'
+          );
+        })
+        .join('');
+      list.hidden = matches.length === 0;
+      document.dispatchEvent(
+        new CustomEvent('site-event', {
+          detail: {
+            name: 'search_used',
+            params: { query_length: q.length, matched: matches.length > 0 },
+          },
+        })
+      );
+    }
+
+    if (input) {
+      input.addEventListener('focus', loadIndex);
+      input.addEventListener('input', function () {
+        loadIndex();
+        render(input.value);
+      });
+      if (input.value) {
+        loadIndex();
+      }
+    }
+  })();
+</script>
+
+<style>
+  .searchbox {
+    position: relative;
+    max-width: 480px;
+  }
+  #vehicle-search {
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: inherit;
+  }
+  #vehicle-search-results {
+    position: absolute;
+    z-index: 10;
+    left: 0;
+    right: 0;
+    margin: 0.25rem 0 0;
+    padding: 0.25rem;
+    list-style: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  }
+  #vehicle-search-results li a {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  #vehicle-search-results li a:hover {
+    background: var(--badge-bg);
+  }
+</style>

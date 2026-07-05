@@ -1,0 +1,59 @@
+# Standalone smoke check: manual, or after any deploy. Samples 20 indexable
+# URLs from the LIVE sitemap (no build state needed) and asserts 200 +
+# gtag + parseable JSON-LD + recall list or valid empty state.
+name: smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'URLs to sample'
+        default: '20'
+  workflow_run:
+    workflows: [deploy]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+      - name: Sample live sitemap and smoke-check
+        working-directory: etl
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          COUNT: ${{ inputs.count || '20' }}
+        run: |
+          uv sync --frozen
+          uv run python - <<'EOF'
+          import os, random, re, sys
+          import httpx
+          from etl.smoke import check_url
+
+          site = os.environ["SITE_URL"].rstrip("/")
+          n = int(os.environ.get("COUNT", "20"))
+          with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+              index = client.get(f"{site}/sitemaps/sitemap-index.xml").text
+              shards = re.findall(r"<loc>(.*?)</loc>", index)
+              assert shards, "sitemap index empty"
+              shard = client.get(random.choice(shards)).text
+              urls = re.findall(r"<loc>(.*?)</loc>", shard)
+              assert urls, "sitemap shard empty"
+              sample = random.sample(urls, min(n, len(urls)))
+              failures = []
+              for url in sample:
+                  problems = check_url(client, url)
+                  print(("FAIL " if problems else "ok   ") + url)
+                  failures.extend(problems)
+          for p in failures:
+              print(p)
+          sys.exit(1 if failures else 0)
+          EOF

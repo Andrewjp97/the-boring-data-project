@@ -1,0 +1,125 @@
+---
+/** Model hub: per-year table, unknown-year recalls, top components. */
+import AdSlot from '../../../../components/AdSlot.astro';
+import Breadcrumbs from '../../../../components/Breadcrumbs.astro';
+import RecallCard from '../../../../components/RecallCard.astro';
+import Layout from '../../../../layouts/Layout.astro';
+import { setPageCache } from '../../../../lib/cache';
+import { getPageDoc } from '../../../../lib/firestore';
+import { buildPageDims } from '../../../../lib/ga';
+import { breadcrumbJsonLd, fmtInt, hubPageTitle, metaDescription } from '../../../../lib/seo';
+
+const { make, model } = Astro.params;
+const slug = `recalls/${make}/${model}`;
+const doc = (await getPageDoc(slug)) as any;
+if (!doc) return Astro.rewrite('/404');
+setPageCache(Astro.response);
+
+const label = `${doc.make.display} ${doc.model.display}`;
+const bits = { make: doc.make.display, model: doc.model.display, year: null };
+const updatedDate = doc.updatedAt ? new Date(doc.updatedAt) : new Date();
+const siteUrl = (Astro.site?.toString() ?? '').replace(/\/$/, '');
+const crumbs = [
+  { name: 'Home', path: '/' },
+  { name: doc.make.display, path: `/recalls/${doc.make.slug}/` },
+  { name: doc.model.display, path: `/${slug}/` },
+];
+const dims = buildPageDims({
+  kind: 'model',
+  make: doc.make.slug,
+  model: doc.model.slug,
+  recallCount: doc.recallCount,
+  complaintTotal: doc.complaintTotal,
+  indexable: doc.indexable,
+});
+---
+
+<Layout
+  title={hubPageTitle(label, updatedDate)}
+  description={metaDescription(bits, doc.recallCount, doc.complaintTotal)}
+  canonicalPath={`/${slug}/`}
+  indexable={doc.indexable}
+  jsonLd={[breadcrumbJsonLd(siteUrl, crumbs)]}
+  dims={dims}
+>
+  <Breadcrumbs crumbs={crumbs} />
+  <h1>{label} Recalls by Year</h1>
+  <p class="answer-box">
+    Across all model years, the {label} has {fmtInt(doc.recallCount)} NHTSA recall
+    {doc.recallCount === 1 ? 'campaign' : 'campaigns'} and {fmtInt(doc.complaintTotal)} owner
+    {doc.complaintTotal === 1 ? 'complaint' : 'complaints'} on record. Pick a model year for
+    the full breakdown.
+  </p>
+
+  {
+    doc.yearRows.length > 0 && (
+      <table class="hub-table">
+        <thead>
+          <tr>
+            <th scope="col">Model year</th>
+            <th scope="col">Recalls</th>
+            <th scope="col">Complaints</th>
+          </tr>
+        </thead>
+        <tbody>
+          {doc.yearRows.map((row: any) => (
+            <tr>
+              <th scope="row">
+                <a href={`/recalls/${doc.make.slug}/${doc.model.slug}/${row.year}/`}>
+                  {row.year} {label}
+                </a>
+              </th>
+              <td>{row.recallCount}</td>
+              <td>{fmtInt(row.complaintCount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
+  <AdSlot slot="model-page-1" />
+
+  {
+    doc.unknownYearRecalls.length > 0 && (
+      <section>
+        <h2>Recalls not tied to a specific model year</h2>
+        <p class="muted-note">
+          NHTSA lists these campaigns for the {label} without a model year (or applying to all
+          years).
+        </p>
+        {doc.unknownYearRecalls.map((r: any) => (
+          <RecallCard recall={r} />
+        ))}
+      </section>
+    )
+  }
+
+  {
+    doc.nav.siblingModels.length > 0 && (
+      <section>
+        <h2>More {doc.make.display} models</h2>
+        <ul class="link-columns">
+          {doc.nav.siblingModels.map((m: any) => (
+            <li>
+              <a
+                href={`/recalls/${doc.make.slug}/${m.slug}/`}
+                data-evt="related_link_click"
+                data-evt-params='{"link_type":"sibling"}'
+              >
+                {doc.make.display} {m.display}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</Layout>
+
+<style>
+  .muted-note {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

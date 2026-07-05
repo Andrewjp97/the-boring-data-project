@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /vin/
+
+Sitemap: https://recalllookup.example/sitemaps/sitemap-index.xml

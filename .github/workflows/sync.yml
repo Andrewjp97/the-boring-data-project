@@ -1,0 +1,209 @@
+# Weekly data sync: NHTSA flat files -> Firestore -> sitemaps -> Hosting
+# deploy (which flushes the CDN — that deploy IS the cache purge, SPEC §6).
+#
+# Auth is Workload Identity Federation — no key files, ever. Required setup
+# (repo Settings -> Secrets and variables -> Actions -> Variables):
+#   GCP_PROJECT_ID        e.g. recall-lookup-prod
+#   GCP_WIF_PROVIDER      projects/N/locations/global/workloadIdentityPools/gh/providers/gh
+#   GCP_ETL_SA            etl-sync@PROJECT.iam.gserviceaccount.com
+#   SITE_URL              https://your-domain.example
+name: sync
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Mondays 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run even if downloads are unchanged'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # WIF
+  issues: write # failure auto-issue
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      changed: ${{ steps.download.outputs.changed }}
+    defaults:
+      run:
+        working-directory: etl
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ETL
+        run: uv sync --frozen
+
+      # Previous run's checksums + manifest + baseline. Keyed by run id with
+      # a shared restore prefix = "most recent previous state".
+      - name: Restore previous build state
+        uses: actions/cache/restore@v4
+        with:
+          path: etl/build/state
+          key: etl-state-${{ github.run_id }}
+          restore-keys: |
+            etl-state-
+
+      - name: Download flat files (checksums decide no-op)
+        id: download
+        run: uv run etl download ${{ inputs.force && '--force' || '' }}
+
+      - name: Refresh vPIC make canon (monthly, first week)
+        if: steps.download.outputs.changed == 'true'
+        run: |
+          if [ "$(date -u +%d)" -le 07 ]; then uv run etl vpic-refresh || true; fi
+
+      - name: Parse
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl parse
+
+      - name: Normalize (aliases, PII scrub, quarantine)
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl normalize
+
+      - name: Build SQLite
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl build-sqlite
+
+      - name: Build page docs + search index
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl build-pages
+
+      # Fails here -> nothing was pushed, old data keeps serving (SPEC §10).
+      - name: Integrity assertions + live API spot-check
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl verify --spot-check
+
+      - name: Diff vs previous run
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl diff
+
+      - name: Authenticate to GCP (WIF)
+        if: steps.download.outputs.changed == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_ETL_SA }}
+
+      - name: Push changed docs to Firestore
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl push-firestore
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Write sitemaps + robots.txt
+        if: steps.download.outputs.changed == 'true'
+        run: uv run etl sitemaps
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Assemble Hosting public dir
+        if: steps.download.outputs.changed == 'true'
+        working-directory: .
+        run: |
+          rm -rf site/public-deploy
+          cp -r site/public site/public-deploy
+
+      # Publishes sitemaps + search index AND flushes the Hosting CDN.
+      - name: Deploy Hosting (CDN flush)
+        if: steps.download.outputs.changed == 'true'
+        working-directory: .
+        run: npx --yes firebase-tools@latest deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
+
+      # Google retired the sitemap ping endpoint (June 2023). Freshness is
+      # signaled via <lastmod> + GSC; nothing to ping.
+
+      - name: Save build state
+        if: steps.download.outputs.changed == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: etl/build/state
+          key: etl-state-${{ github.run_id }}
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Weekly sync"
+            echo '```json'
+            cat work/normalized/summary.json 2>/dev/null || echo '{"note":"no-op week (downloads unchanged)"}'
+            cat build/pages/summary.json 2>/dev/null || true
+            cat build/diff/summary.json 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload state artifact (smoke sampling)
+        if: steps.download.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-state
+          path: |
+            etl/build/state/manifest.json
+            etl/build/diff/changed.jsonl
+          retention-days: 7
+
+      # The ONLY human touchpoint in steady state (SPEC §10).
+      - name: Open issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Weekly sync failed — run ${context.runId}`;
+            const open = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: 'sync-failure',
+            });
+            const body = [
+              'The scheduled data sync failed before pushing to Firestore, so production data is untouched.',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'Check the job summary for row counts / quarantine rate / assertion failures.',
+            ].join('\n');
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                ...context.repo, title, body, labels: ['sync-failure'],
+              });
+            }
+
+  smoke:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: etl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+      - run: uv sync --frozen
+      # Artifact preserves paths relative to etl/build (common ancestor):
+      # state/manifest.json + diff/changed.jsonl land where smoke expects.
+      - uses: actions/download-artifact@v4
+        with:
+          name: sync-state
+          path: etl/build
+      - name: Smoke-check 20 sampled URLs
+        run: uv run etl smoke 20
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}

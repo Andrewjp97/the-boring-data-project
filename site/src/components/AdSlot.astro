@@ -1,0 +1,50 @@
+---
+/**
+ * Manual AdSense placement (SPEC §8). Renders only when PUBLIC_ADS_ENABLED
+ * is 'true' AND a client ID is set; consent gating is handled by Consent
+ * Mode (non-personalized until granted). Fixed-height reservation keeps
+ * CLS at 0. Auto ads stay OFF.
+ */
+interface Props {
+  slot: string; // AdSense ad-unit slot id
+  minHeight?: number;
+}
+
+const { slot, minHeight = 280 } = Astro.props;
+const enabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true';
+const client = import.meta.env.PUBLIC_ADSENSE_CLIENT;
+---
+
+{
+  enabled && client && (
+    <div class="ad-slot" style={`min-height:${minHeight}px`} aria-label="Advertisement">
+      <span class="ad-label">Advertisement</span>
+      <ins
+        class="adsbygoogle"
+        style={`display:block;min-height:${minHeight - 20}px`}
+        data-ad-client={client}
+        data-ad-slot={slot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+      <script is:inline>
+        (adsbygoogle = window.adsbygoogle || []).push({});
+      </script>
+    </div>
+  )
+}
+
+<style>
+  .ad-slot {
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+  .ad-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+</style>
