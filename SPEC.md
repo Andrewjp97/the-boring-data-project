@@ -2,7 +2,7 @@
 
 ## Programmatic SEO entity-page site on public NHTSA data — Firebase edition
 
-**Owner:** Andrew Jacob / PaperclipAI LLC
+**Owner:** Andrew Paterson / ZeroBound LLC
 **Audience for this doc:** Claude Code (implementation agent)
 **Status:** v2.0 — Firebase/GCP stack, deep GA4 instrumentation, Google display ads
 **Prime directive:** Near-zero human maintenance after launch. Every recurring task runs unattended in CI. When a design choice trades elegance for hands-off operation, choose hands-off.
