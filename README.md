@@ -147,8 +147,10 @@ build is present). Verified locally, all checks green:
   carries `page_kind`, `make`, `model`, `model_year`, `recall_count_bucket`,
   `complaint_count_bucket`, `indexable` (entity dims are *omitted*, never sent as null,
   where inapplicable). `PUBLIC_GA_DEBUG=true` builds add `debug_mode` to every hit so the
-  one-time GA4 DebugView run is just: deploy a debug build, click through the five page
-  kinds, watch the dims arrive.
+  one-time GA4 DebugView run is just: set the `PUBLIC_GA_DEBUG=true` repo variable,
+  dispatch `deploy.yml` (the flag is plumbed through the container build args), click
+  through the five page kinds, watch the dims arrive, then unset the variable and
+  redeploy.
 - **Consent-denied path**: Consent Mode v2 default `denied` for all four signals (with
   `wait_for_update`) is queued *before* the config call on every page, and
   `ads_data_redaction` is set. The Funding Choices CMP loads only when
@@ -212,7 +214,11 @@ production URLs, apply to AdSense once indexed, then set `PUBLIC_ADSENSE_CLIENT`
    `site/public/ads.txt`, and the `google-adsense-account` verification meta tag renders
    on every page whenever `PUBLIC_ADSENSE_CLIENT` is set (the `deploy.yml` default),
    independent of `PUBLIC_ADS_ENABLED` — so the site verifies during the application
-   while ads stay off. Apply once live + indexed, then flip `PUBLIC_ADS_ENABLED=true`.
+   while ads stay off. After approval: create the five manual ad units in the AdSense
+   console and set their numeric ids as repo variables (`PUBLIC_ADSENSE_SLOT_YEAR_1`,
+   `PUBLIC_ADSENSE_SLOT_YEAR_2`, `PUBLIC_ADSENSE_SLOT_MAKE`, `PUBLIC_ADSENSE_SLOT_MODEL`,
+   `PUBLIC_ADSENSE_SLOT_CAMPAIGN`), then flip `PUBLIC_ADS_ENABLED=true`. A placement
+   without a configured slot id renders nothing — never an invalid ad tag.
 6. **Amazon Associates** — set `PUBLIC_AMAZON_TAG` and replace the placeholder ASINs in
    `site/src/data/affiliate-map.json` (~15 hand-picked products).
 

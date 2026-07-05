@@ -1,9 +1,13 @@
 # On push to main: quality gates -> container -> Cloud Run -> Hosting.
 # Required Actions variables (see sync.yml for WIF setup):
 #   GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, SITE_URL
-# Optional variables: PUBLIC_GA_ID, PUBLIC_ADS_ENABLED, PUBLIC_ADSENSE_CLIENT,
+# Optional variables: PUBLIC_GA_ID, PUBLIC_GA_DEBUG, PUBLIC_ADS_ENABLED,
+#   PUBLIC_ADSENSE_CLIENT, PUBLIC_ADSENSE_SLOT_* (the numeric ad-unit ids
+#   from the AdSense console — placements without one render no ad),
 #   PUBLIC_AMAZON_TAG. GA id and AdSense client default to the real
-#   (public-by-design) values below; repo variables override them.
+#   (public-by-design) values below; repo variables override them. Keep the
+#   GA default in sync with smoke.yml/sync.yml so the post-deploy gtag
+#   assertion matches what the container was built with.
 name: deploy
 
 on:
@@ -81,9 +85,21 @@ jobs:
                 - --build-arg
                 - PUBLIC_GA_ID=${{ vars.PUBLIC_GA_ID || 'G-ZM0SQZ4EHB' }}
                 - --build-arg
+                - PUBLIC_GA_DEBUG=${{ vars.PUBLIC_GA_DEBUG || 'false' }}
+                - --build-arg
                 - PUBLIC_ADS_ENABLED=${{ vars.PUBLIC_ADS_ENABLED || 'false' }}
                 - --build-arg
                 - PUBLIC_ADSENSE_CLIENT=${{ vars.PUBLIC_ADSENSE_CLIENT || 'ca-pub-2804638991683725' }}
+                - --build-arg
+                - PUBLIC_ADSENSE_SLOT_YEAR_1=${{ vars.PUBLIC_ADSENSE_SLOT_YEAR_1 }}
+                - --build-arg
+                - PUBLIC_ADSENSE_SLOT_YEAR_2=${{ vars.PUBLIC_ADSENSE_SLOT_YEAR_2 }}
+                - --build-arg
+                - PUBLIC_ADSENSE_SLOT_MAKE=${{ vars.PUBLIC_ADSENSE_SLOT_MAKE }}
+                - --build-arg
+                - PUBLIC_ADSENSE_SLOT_MODEL=${{ vars.PUBLIC_ADSENSE_SLOT_MODEL }}
+                - --build-arg
+                - PUBLIC_ADSENSE_SLOT_CAMPAIGN=${{ vars.PUBLIC_ADSENSE_SLOT_CAMPAIGN }}
                 - --build-arg
                 - PUBLIC_AMAZON_TAG=${{ vars.PUBLIC_AMAZON_TAG }}
                 - --build-arg

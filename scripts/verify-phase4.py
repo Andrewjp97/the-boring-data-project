@@ -55,6 +55,16 @@ SERVER_ENTRY = REPO_ROOT / "site" / "dist" / "server" / "entry.mjs"
 GA_ID = "G-TEST"
 ADSENSE_CLIENT = "ca-pub-0000000000000000"
 AMAZON_TAG = "phase4test-20"
+# Numeric ad-unit slot ids (as issued by the AdSense console). The campaign
+# placement is deliberately left unconfigured to verify the fail-safe: no
+# slot id -> no ad tag, never an invalid one.
+SLOT_ENV = {
+    "PUBLIC_ADSENSE_SLOT_YEAR_1": "1111111111",
+    "PUBLIC_ADSENSE_SLOT_YEAR_2": "2222222222",
+    "PUBLIC_ADSENSE_SLOT_MAKE": "3333333333",
+    "PUBLIC_ADSENSE_SLOT_MODEL": "4444444444",
+    "PUBLIC_ADSENSE_SLOT_CAMPAIGN": "",
+}
 
 SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
 CONFIG_RE = re.compile(r"const config = (\{.*?\});")
@@ -298,7 +308,8 @@ class Servers:
 
 def phase_flags_off(samples: dict, pages_jsonl: Path) -> None:
     build_site({"PUBLIC_GA_ID": GA_ID, "PUBLIC_GA_DEBUG": "", "PUBLIC_ADS_ENABLED": "",
-                "PUBLIC_ADSENSE_CLIENT": "", "PUBLIC_AMAZON_TAG": ""})
+                "PUBLIC_ADSENSE_CLIENT": "", "PUBLIC_AMAZON_TAG": "",
+                **dict.fromkeys(SLOT_ENV, "")})
     with Servers(pages_jsonl) as servers:
         base = servers.base
         pages = [("home", "/", None), ("vin", "/vin/", None)] + [
@@ -362,7 +373,7 @@ def phase_flags_off(samples: dict, pages_jsonl: Path) -> None:
 def phase_flags_on(samples: dict, pages_jsonl: Path, skip_cls: bool) -> None:
     build_site({"PUBLIC_GA_ID": GA_ID, "PUBLIC_GA_DEBUG": "true",
                 "PUBLIC_ADS_ENABLED": "true", "PUBLIC_ADSENSE_CLIENT": ADSENSE_CLIENT,
-                "PUBLIC_AMAZON_TAG": AMAZON_TAG})
+                "PUBLIC_AMAZON_TAG": AMAZON_TAG, **SLOT_ENV})
     with Servers(pages_jsonl) as servers:
         base = servers.base
         year_doc = samples["kinds"]["year"]
@@ -379,8 +390,11 @@ def phase_flags_on(samples: dict, pages_jsonl: Path, skip_cls: bool) -> None:
         check(len(slots) == 2, f"year: two fixed-height ad slots (got {len(slots)})")
         check(html.count('data-ad-client="' + ADSENSE_CLIENT + '"') == 2,
               "year: ad units carry the client id")
-        check('data-ad-slot="year-page-1"' in html and 'data-ad-slot="year-page-2"' in html,
-              "year: both ad-unit slot ids present")
+        check(
+            f'data-ad-slot="{SLOT_ENV["PUBLIC_ADSENSE_SLOT_YEAR_1"]}"' in html
+            and f'data-ad-slot="{SLOT_ENV["PUBLIC_ADSENSE_SLOT_YEAR_2"]}"' in html,
+            "year: both units carry their numeric AdSense slot ids",
+        )
         check(html.count(">Advertisement<") == 2, "year: ad slots labeled 'Advertisement'")
         answer_at = html.find("answer-box")
         first_ad_at = html.find('class="ad-slot"')
@@ -398,10 +412,12 @@ def phase_flags_on(samples: dict, pages_jsonl: Path, skip_cls: bool) -> None:
         check(config.get("debug_mode") is True, "year: debug_mode on PUBLIC_GA_DEBUG build")
         check_consent("year", html)
 
-        for kind in ("make", "model", "campaign"):
+        for kind, expected in (("make", 1), ("model", 1), ("campaign", 0)):
             _, khtml = fetch(base, f"/{samples['kinds'][kind]['slug']}/")
             n = len(re.findall(r'class="ad-slot"', khtml))
-            check(n == 1, f"{kind}: one fixed-height ad slot (got {n})")
+            label = ("one fixed-height ad slot" if expected
+                     else "no ad tag for unconfigured slot id (fail-safe)")
+            check(n == expected, f"{kind}: {label} (got {n})")
 
         if skip_cls:
             print("\n[flags on] CLS check skipped (--skip-cls)")
