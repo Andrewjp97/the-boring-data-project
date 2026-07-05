@@ -1,7 +1,8 @@
 ---
-/** Make hub: model list with counts. */
+/** Make hub: model index with counts (design: "Make hub — Honda"). */
 import AdSlot from '../../../components/AdSlot.astro';
 import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import MetricStat from '../../../components/MetricStat.astro';
 import SearchBox from '../../../components/SearchBox.astro';
 import Layout from '../../../layouts/Layout.astro';
 import { setPageCache } from '../../../lib/cache';
@@ -29,6 +30,8 @@ const dims = buildPageDims({
   complaintTotal: doc.complaintTotal,
   indexable: doc.indexable,
 });
+// A model with an outsized share of the make's recalls gets flagged.
+const HIGH_RECALLS = 30;
 ---
 
 <Layout
@@ -40,43 +43,165 @@ const dims = buildPageDims({
   dims={dims}
 >
   <Breadcrumbs crumbs={crumbs} />
-  <h1>{doc.make.display} Recalls &amp; Complaints by Model</h1>
-  <p class="answer-box">
-    NHTSA lists {fmtInt(doc.recallCount)} recall
-    {doc.recallCount === 1 ? 'campaign' : 'campaigns'} and {fmtInt(doc.complaintTotal)}
-    owner {doc.complaintTotal === 1 ? 'complaint' : 'complaints'} across {doc.models.length}
-    {doc.make.display} {doc.models.length === 1 ? 'model' : 'models'}. Pick a model, then a
-    year.
+  <h1>{doc.make.display} Recalls</h1>
+
+  <div class="metric-strip">
+    <MetricStat value={fmtInt(doc.recallCount)} label="Recall campaigns" tone="recall" />
+    <MetricStat value={fmtInt(doc.models.length)} label="Models" />
+    <MetricStat value={fmtInt(doc.complaintTotal)} label="Complaints" />
+  </div>
+
+  <p class="lead">
+    {doc.make.display} has {fmtInt(doc.recallCount)} NHTSA recall
+    {doc.recallCount === 1 ? 'campaign' : 'campaigns'} across {doc.models.length}
+    {doc.models.length === 1 ? 'model' : 'models'} on record. Select a model for per-year
+    recall and complaint detail.
   </p>
 
   <SearchBox placeholder={`Search ${doc.make.display} models…`} />
 
-  <table class="hub-table">
-    <thead>
-      <tr>
-        <th scope="col">Model</th>
-        <th scope="col">Years</th>
-        <th scope="col">Recalls</th>
-        <th scope="col">Complaints</th>
-      </tr>
-    </thead>
-    <tbody>
-      {
-        doc.models.map((m: any) => (
-          <tr>
-            <th scope="row">
-              <a href={`/recalls/${doc.make.slug}/${m.slug}/`}>
-                {doc.make.display} {m.display}
-              </a>
-            </th>
-            <td>{m.yearMin ? `${m.yearMin}–${m.yearMax}` : '—'}</td>
-            <td>{m.recallCount}</td>
-            <td>{fmtInt(m.complaintCount)}</td>
-          </tr>
-        ))
-      }
-    </tbody>
-  </table>
+  <h2>Recalls by model</h2>
+  <div class="model-table">
+    <div class="thead" aria-hidden="true">
+      <div class="rr-eyebrow">Model</div>
+      <div class="rr-eyebrow">Model years</div>
+      <div class="rr-eyebrow num">Recalls</div>
+      <div class="rr-eyebrow num">Complaints</div>
+    </div>
+    {
+      doc.models.map((m: any) => (
+        <a class="trow" href={`/recalls/${doc.make.slug}/${m.slug}/`}>
+          <span class="model-name">
+            {doc.make.display} {m.display}
+            {m.recallCount >= HIGH_RECALLS && <span class="badge high">High</span>}
+          </span>
+          <span class="years">{m.yearMin ? `${m.yearMin}–${m.yearMax}` : '—'}</span>
+          <span class="num recalls">{m.recallCount}</span>
+          <span class="num">{fmtInt(m.complaintCount)}</span>
+        </a>
+      ))
+    }
+  </div>
 
-  <AdSlot placement="make-page-1" />
+  <AdSlot placement="make-page-1" minHeight={110} />
+
+  <div class="sources">
+    <div class="rr-eyebrow">Sources &amp; methodology</div>
+    <p>
+      Recall, complaint, and investigation records from official NHTSA datasets (FLAT_RCL,
+      FLAT_CMPL, FLAT_INV), synced weekly. <a href="/methodology/">Full methodology</a>.
+    </p>
+  </div>
 </Layout>
+
+<style>
+  .metric-strip {
+    display: flex;
+    gap: var(--sp-10);
+    margin: var(--sp-5) 0 28px;
+    flex-wrap: wrap;
+  }
+  .lead {
+    font: var(--type-lead);
+    color: var(--ink-700);
+    margin: 0 0 var(--sp-6);
+  }
+
+  .model-table {
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-card);
+  }
+  .thead,
+  .trow {
+    display: grid;
+    grid-template-columns: 1fr 130px 90px 110px;
+    gap: var(--sp-4);
+    align-items: center;
+    padding: 11px 18px;
+  }
+  .thead {
+    background: var(--paper-sunken);
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .num {
+    text-align: right;
+  }
+  .trow {
+    padding: 13px 18px;
+    text-decoration: none;
+    color: var(--ink-900);
+    border-top: 1px solid var(--border-default);
+  }
+  .trow:first-of-type {
+    border-top: none;
+  }
+  .trow:hover {
+    text-decoration: none;
+    background: var(--paper-sunken);
+    color: var(--ink-900);
+  }
+  .model-name {
+    font-weight: var(--w-semibold);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .badge.high {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-sans);
+    font-weight: var(--w-semibold);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 2px 6px;
+    border-radius: var(--r-xs);
+    color: var(--amber-600);
+    background: var(--amber-50);
+    border: 1px solid var(--amber-100);
+    line-height: 1.2;
+  }
+  .years,
+  .num {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .years {
+    color: var(--text-muted);
+  }
+  .num.recalls {
+    color: var(--amber-600);
+    font-weight: var(--w-semibold);
+  }
+
+  .sources {
+    margin-top: var(--block);
+    padding-top: 18px;
+    border-top: 1px solid var(--border-default);
+  }
+  .sources .rr-eyebrow {
+    margin-bottom: var(--sp-2);
+  }
+  .sources p {
+    font: var(--type-prose);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    .thead,
+    .trow {
+      grid-template-columns: 1fr 80px 90px;
+    }
+    .years {
+      display: none;
+    }
+    .thead .rr-eyebrow:nth-child(2) {
+      display: none;
+    }
+  }
+</style>

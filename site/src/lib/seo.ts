@@ -4,7 +4,7 @@
  * LLM-generated filler, by design.
  */
 
-export const SITE_NAME = process.env.SITE_NAME || 'RecallLookup';
+export const SITE_NAME = process.env.SITE_NAME || 'RecallRepo';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
