@@ -4,10 +4,15 @@
  */
 export const CACHE_HEADER = 'public, s-maxage=604800, stale-while-revalidate=86400';
 
-export function setPageCache(response: Response): void {
+/** Matches Astro.response, which is a ResponseInit with live headers — not a full Response. */
+interface HasHeaders {
+  headers: Headers;
+}
+
+export function setPageCache(response: HasHeaders): void {
   response.headers.set('Cache-Control', CACHE_HEADER);
 }
 
-export function setNoCache(response: Response): void {
+export function setNoCache(response: HasHeaders): void {
   response.headers.set('Cache-Control', 'no-store');
 }
