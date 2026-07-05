@@ -1,3 +1,2 @@
-# AdSense publisher line — replace pub-0000000000000000 with the real
-# publisher ID after the AdSense application is approved (SPEC §12.4).
-google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+# AdSense publisher line (SPEC §12.4).
+google.com, pub-2804638991683725, DIRECT, f08c47fec0942fa0

@@ -2,7 +2,8 @@
 # Required Actions variables (see sync.yml for WIF setup):
 #   GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, SITE_URL
 # Optional variables: PUBLIC_GA_ID, PUBLIC_ADS_ENABLED, PUBLIC_ADSENSE_CLIENT,
-#   PUBLIC_AMAZON_TAG
+#   PUBLIC_AMAZON_TAG. GA id and AdSense client default to the real
+#   (public-by-design) values below; repo variables override them.
 name: deploy
 
 on:
@@ -78,11 +79,11 @@ jobs:
                 - -t
                 - $IMAGE
                 - --build-arg
-                - PUBLIC_GA_ID=${{ vars.PUBLIC_GA_ID }}
+                - PUBLIC_GA_ID=${{ vars.PUBLIC_GA_ID || 'G-ZM0SQZ4EHB' }}
                 - --build-arg
                 - PUBLIC_ADS_ENABLED=${{ vars.PUBLIC_ADS_ENABLED || 'false' }}
                 - --build-arg
-                - PUBLIC_ADSENSE_CLIENT=${{ vars.PUBLIC_ADSENSE_CLIENT }}
+                - PUBLIC_ADSENSE_CLIENT=${{ vars.PUBLIC_ADSENSE_CLIENT || 'ca-pub-2804638991683725' }}
                 - --build-arg
                 - PUBLIC_AMAZON_TAG=${{ vars.PUBLIC_AMAZON_TAG }}
                 - --build-arg

@@ -313,6 +313,7 @@ def phase_flags_off(samples: dict, pages_jsonl: Path) -> None:
             check("debug_mode" not in config, f"{kind}: no debug_mode in normal build")
             for marker, what in (
                 ("adsbygoogle", "AdSense"),
+                ("google-adsense-account", "AdSense verification meta"),
                 ("fundingchoicesmessages", "consent banner"),
                 ("amazon.com", "affiliate links"),
             ):
@@ -371,6 +372,8 @@ def phase_flags_on(samples: dict, pages_jsonl: Path, skip_cls: bool) -> None:
 
         check(f"adsbygoogle.js?client={ADSENSE_CLIENT}" in html,
               "year: AdSense loader in head with client id")
+        check(f'<meta name="google-adsense-account" content="{ADSENSE_CLIENT}">' in html,
+              "year: AdSense account verification meta tag")
         slots = re.findall(r'class="ad-slot" style="min-height:(\d+)px"', html)
         check(len(slots) == 2, f"year: two fixed-height ad slots (got {len(slots)})")
         check(html.count('data-ad-client="' + ADSENSE_CLIENT + '"') == 2,

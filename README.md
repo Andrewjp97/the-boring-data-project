@@ -203,12 +203,16 @@ production URLs, apply to AdSense once indexed, then set `PUBLIC_ADSENSE_CLIENT`
    accounts — `etl-sync` (Firestore write + Hosting deploy) and `deploy` (Cloud Run deploy +
    Hosting). Set repo Actions variables: `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_ETL_SA`,
    `GCP_DEPLOY_SA`, `SITE_URL`.
-4. **GA4** property → `PUBLIC_GA_ID` variable; register the custom dimensions
-   (`page_kind`, `make`, `model`, `model_year`, `recall_count_bucket`,
+4. **GA4** property → done: `G-ZM0SQZ4EHB` is the default `PUBLIC_GA_ID` in `deploy.yml`
+   (a repo variable overrides it). Still to do in the console: register the custom
+   dimensions (`page_kind`, `make`, `model`, `model_year`, `recall_count_bucket`,
    `complaint_count_bucket`, `indexable`); link AdSense + Search Console; enable BigQuery
    daily export; set up the Funding Choices CMP message.
-5. **AdSense** — apply once live + indexed; then set `PUBLIC_ADSENSE_CLIENT`, put the real
-   publisher line in `site/public/ads.txt`, and flip `PUBLIC_ADS_ENABLED=true`.
+5. **AdSense** — account `ca-pub-2804638991683725` is wired: real publisher line in
+   `site/public/ads.txt`, and the `google-adsense-account` verification meta tag renders
+   on every page whenever `PUBLIC_ADSENSE_CLIENT` is set (the `deploy.yml` default),
+   independent of `PUBLIC_ADS_ENABLED` — so the site verifies during the application
+   while ads stay off. Apply once live + indexed, then flip `PUBLIC_ADS_ENABLED=true`.
 6. **Amazon Associates** — set `PUBLIC_AMAZON_TAG` and replace the placeholder ASINs in
    `site/src/data/affiliate-map.json` (~15 hand-picked products).
 
