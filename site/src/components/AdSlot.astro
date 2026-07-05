@@ -21,6 +21,8 @@ interface Props {
 const SLOT_IDS = {
   'year-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_YEAR_1,
   'year-page-2': import.meta.env.PUBLIC_ADSENSE_SLOT_YEAR_2,
+  'year-page-mid': import.meta.env.PUBLIC_ADSENSE_SLOT_YEAR_MID,
+  'year-page-rail': import.meta.env.PUBLIC_ADSENSE_SLOT_YEAR_RAIL,
   'make-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_MAKE,
   'model-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_MODEL,
   'campaign-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_CAMPAIGN,
@@ -35,7 +37,7 @@ const slotId = SLOT_IDS[placement];
 {
   enabled && client && slotId && (
     <div class="ad-slot" style={`min-height:${minHeight}px`} aria-label="Advertisement">
-      <span class="ad-label">Advertisement</span>
+      <span class="ad-label rr-eyebrow">Advertisement</span>
       <ins
         class="adsbygoogle"
         style={`display:block;min-height:${minHeight - 20}px`}
@@ -53,15 +55,12 @@ const slotId = SLOT_IDS[placement];
 
 <style>
   .ad-slot {
-    margin: 1.5rem 0;
+    margin: var(--block) 0;
     text-align: center;
   }
   .ad-label {
     display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    margin-bottom: 0.25rem;
+    color: var(--text-faint);
+    margin-bottom: 6px;
   }
 </style>

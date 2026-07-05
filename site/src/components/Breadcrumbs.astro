@@ -1,4 +1,9 @@
 ---
+/**
+ * Breadcrumbs — the entity hierarchy trail (Home / Honda / CR-V / 2016).
+ * Mirrors the BreadcrumbList JSON-LD. Last item is the current page (not a
+ * link). Mono "/" separator per the design system.
+ */
 import type { Crumb } from '../lib/seo';
 
 interface Props {
@@ -13,7 +18,12 @@ const { crumbs } = Astro.props;
     {
       crumbs.map((c, i) => (
         <li>
-          {i < crumbs.length - 1 ? <a href={c.path}>{c.name}</a> : <span aria-current="page">{c.name}</span>}
+          {i < crumbs.length - 1 ? (
+            <a href={c.path}>{c.name}</a>
+          ) : (
+            <span class="current" aria-current="page">{c.name}</span>
+          )}
+          {i < crumbs.length - 1 && <span class="sep" aria-hidden="true">/</span>}
         </li>
       ))
     }
@@ -24,16 +34,28 @@ const { crumbs } = Astro.props;
   .breadcrumbs ol {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 4px;
     list-style: none;
     padding: 0;
-    margin: 0 0 0.75rem;
-    font-size: 0.85rem;
-    color: var(--muted);
+    margin: 0 0 var(--sp-5);
+    font-size: var(--fs-xs);
+    font-family: var(--font-sans);
   }
-  .breadcrumbs li + li::before {
-    content: '›';
-    margin: 0 0.35rem;
-    color: var(--muted);
+  .breadcrumbs li {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .breadcrumbs a {
+    color: var(--text-muted);
+  }
+  .breadcrumbs .current {
+    color: var(--ink-700);
+    font-weight: var(--w-medium);
+  }
+  .breadcrumbs .sep {
+    color: var(--ink-400);
+    font-family: var(--font-mono);
   }
 </style>

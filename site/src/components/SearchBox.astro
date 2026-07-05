@@ -2,18 +2,38 @@
 /**
  * Vanilla-JS typeahead island (SPEC §4): zero Firestore reads. Lazily
  * fetches /search-index.json on first keystroke, fuzzy-matches client-side.
- * Ships only on home/hub/404 pages.
+ * Ships only on home/hub/404 pages. Magnifier glyph + dropdown with the
+ * model-year range as mono metadata, per the design system.
  */
 interface Props {
   placeholder?: string;
   initialQuery?: string;
+  size?: 'md' | 'lg';
 }
 
-const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQuery = '' } =
-  Astro.props;
+const {
+  placeholder = 'Search a year, make, and model…',
+  initialQuery = '',
+  size = 'md',
+} = Astro.props;
 ---
 
-<div class="searchbox">
+<div class={`searchbox ${size}`}>
+  <svg
+    class="glyph"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="11" cy="11" r="8"></circle>
+    <path d="m21 21-4.3-4.3"></path>
+  </svg>
   <input
     type="search"
     id="vehicle-search"
@@ -31,20 +51,27 @@ const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQue
     var list = document.getElementById('vehicle-search-results');
     var index = null;
     var loading = false;
+    var failed = false;
 
     function loadIndex() {
       if (index || loading) return;
       loading = true;
       fetch('/search-index.json')
         .then(function (r) {
+          if (!r.ok) throw new Error('http ' + r.status);
           return r.json();
         })
         .then(function (data) {
           index = data;
+          failed = false;
           render(input.value);
         })
         .catch(function () {
+          // Allow a retry on the next keystroke, but tell the user something
+          // is wrong instead of failing silently.
           loading = false;
+          failed = true;
+          render(input.value);
         });
     }
 
@@ -62,11 +89,19 @@ const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQue
     }
 
     function render(q) {
-      if (!index) return;
       q = q.trim().toLowerCase();
       if (q.length < 2) {
         list.hidden = true;
         list.innerHTML = '';
+        return;
+      }
+      if (!index) {
+        if (failed) {
+          list.innerHTML =
+            '<li class="search-error">Search is unavailable right now — ' +
+            '<a href="/#makes">browse by make</a> instead.</li>';
+          list.hidden = false;
+        }
         return;
       }
       var terms = q.split(/\s+/);
@@ -82,9 +117,17 @@ const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQue
       list.innerHTML = matches
         .map(function (m) {
           var e = m[1];
-          var years = e.years && e.years.length ? ' (' + e.years[0] + '–' + e.years[1] + ')' : '';
+          var years = e.years && e.years.length ? e.years[0] + '–' + e.years[1] : '';
           return (
-            '<li><a href="/' + e.slug + '/">' + e.make + ' ' + e.model + years + '</a></li>'
+            '<li><a href="/' +
+            e.slug +
+            '/"><span class="label">' +
+            e.make +
+            ' ' +
+            e.model +
+            '</span>' +
+            (years ? '<span class="meta">' + years + '</span>' : '') +
+            '</a></li>'
           );
         })
         .join('');
@@ -105,6 +148,14 @@ const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQue
         loadIndex();
         render(input.value);
       });
+      input.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        var first = list.querySelector('li a[href]');
+        if (first && !list.hidden) {
+          e.preventDefault();
+          location.href = first.getAttribute('href');
+        }
+      });
       if (input.value) {
         loadIndex();
       }
@@ -115,37 +166,80 @@ const { placeholder = 'Search a make or model — e.g. "Honda CR-V"', initialQue
 <style>
   .searchbox {
     position: relative;
-    max-width: 480px;
+    max-width: 520px;
+  }
+  .glyph {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--ink-400);
+  }
+  .searchbox.lg .glyph {
+    left: 16px;
   }
   #vehicle-search {
     width: 100%;
-    padding: 0.6rem 0.9rem;
-    font-size: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--card-bg);
-    color: inherit;
+    padding: 11px 12px 11px 40px;
+    font: var(--w-regular) var(--fs-body) / 1.4 var(--font-sans);
+    color: var(--ink-900);
+    background: var(--surface-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    outline: none;
+    box-shadow: var(--shadow-sm);
+  }
+  .searchbox.lg #vehicle-search {
+    padding: 16px 16px 16px 46px;
+    font-size: var(--fs-lead);
+  }
+  #vehicle-search:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
   }
   #vehicle-search-results {
     position: absolute;
-    z-index: 10;
+    z-index: 20;
+    top: 100%;
     left: 0;
     right: 0;
-    margin: 0.25rem 0 0;
-    padding: 0.25rem;
+    margin: 6px 0 0;
+    padding: 4px;
     list-style: none;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 320px;
+    overflow-y: auto;
   }
-  #vehicle-search-results li a {
-    display: block;
-    padding: 0.4rem 0.6rem;
-    border-radius: 6px;
+  #vehicle-search-results :global(li a) {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--r-sm);
     text-decoration: none;
+    font-size: var(--fs-body);
+    color: var(--ink-900);
   }
-  #vehicle-search-results li a:hover {
-    background: var(--badge-bg);
+  #vehicle-search-results :global(li a:hover) {
+    background: var(--paper-sunken);
+  }
+  #vehicle-search-results :global(.label) {
+    font-weight: var(--w-medium);
+  }
+  #vehicle-search-results :global(.meta) {
+    margin-left: auto;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  #vehicle-search-results :global(.search-error) {
+    display: block;
+    padding: 10px 12px;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
   }
 </style>

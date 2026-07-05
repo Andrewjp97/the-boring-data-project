@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /vin/
 
-Sitemap: https://recalllookup.example/sitemaps/sitemap-index.xml
+Sitemap: https://recallrepo.com/sitemaps/sitemap-index.xml

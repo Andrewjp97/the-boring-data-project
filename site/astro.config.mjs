@@ -8,7 +8,7 @@ import { defineConfig } from 'astro/config';
 export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
-  site: process.env.SITE_URL || 'https://recalllookup.example',
+  site: process.env.SITE_URL || 'https://recallrepo.com',
   trailingSlash: 'ignore',
   server: { host: true },
 });

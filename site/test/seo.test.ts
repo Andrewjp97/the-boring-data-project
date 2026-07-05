@@ -15,7 +15,7 @@ const bits = { make: 'Honda', model: 'CR-V', year: 2016 };
 describe('titles', () => {
   it('year page title carries updated month for CTR', () => {
     const title = yearPageTitle(bits, new Date(Date.UTC(2026, 6, 5)));
-    expect(title).toBe('2016 Honda CR-V Recalls & Complaints (Updated July 2026) | RecallLookup');
+    expect(title).toBe('2016 Honda CR-V Recalls & Complaints (Updated July 2026) | RecallRepo');
   });
 
   it('monthYear is UTC-stable', () => {

@@ -12,16 +12,36 @@ interface Props {
   indexable?: boolean;
   jsonLd?: object[];
   dims: PageDims;
+  /**
+   * Content container width. 'narrow' = reading column (hub/detail pages),
+   * 'wide' = page-max grid (year page's column + rail), 'none' = full-bleed
+   * (home hero manages its own containers).
+   */
+  container?: 'narrow' | 'wide' | 'none';
 }
 
-const { title, description, canonicalPath, indexable = true, jsonLd = [], dims } = Astro.props;
-const siteUrl = (Astro.site?.toString() ?? 'https://recalllookup.example/').replace(/\/$/, '');
+const {
+  title,
+  description,
+  canonicalPath,
+  indexable = true,
+  jsonLd = [],
+  dims,
+  container = 'narrow',
+} = Astro.props;
+const siteUrl = (Astro.site?.toString() ?? 'https://recallrepo.com/').replace(/\/$/, '');
 const canonical = `${siteUrl}${canonicalPath}`;
 // The account meta tag renders whenever a client is configured, independent
 // of PUBLIC_ADS_ENABLED — AdSense uses it for site verification during the
 // application review, before any ads are switched on.
 const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
 const adsEnabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true' && Boolean(adsenseClient);
+
+// Wordmark renders as bold "Recall" + dimmed remainder when the site name
+// starts with "Recall" (RecallLookup, RecallRepo, …); otherwise as one word.
+const brandSplit = SITE_NAME.startsWith('Recall')
+  ? ['Recall', SITE_NAME.slice('Recall'.length)]
+  : [SITE_NAME, ''];
 ---
 
 <!doctype html>
@@ -32,6 +52,12 @@ const adsEnabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true' && Boolean(adse
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    />
     {adsenseClient && <meta name="google-adsense-account" content={adsenseClient} />}
     {!indexable && <meta name="robots" content="noindex,follow" />}
     {jsonLd.map((obj) => (
@@ -52,160 +78,555 @@ const adsEnabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true' && Boolean(adse
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="/">{SITE_NAME}</a>
-      <nav>
-        <a href="/vin/">Check a VIN</a>
-        <a href="/methodology/">Data &amp; methodology</a>
-      </nav>
+      <div class="site-header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-name">{brandSplit[0]}<span class="brand-dim">{brandSplit[1]}</span></span>
+        </a>
+        <nav>
+          <a href="/#makes">Browse makes</a>
+          <a href="/methodology/">Methodology</a>
+          <a class="nav-vin" href="/vin/">Check your VIN</a>
+        </nav>
+      </div>
     </header>
-    <main>
+    <main class={`container-${container}`}>
       <slot />
     </main>
     <footer class="site-footer">
-      <p>
-        Data source: U.S. National Highway Traffic Safety Administration (NHTSA) public datasets —
-        recalls, complaints, and investigations. Updated weekly.
-        <a href="/methodology/">How this site works</a>.
-      </p>
-      <p>
-        {SITE_NAME} is not affiliated with NHTSA or any vehicle manufacturer. Nothing here is legal
-        or safety advice — verify with
-        <a
-          href="https://www.nhtsa.gov/recalls"
-          rel="noopener"
-          data-evt="outbound_nhtsa"
-          data-evt-params='{"placement":"footer"}'
-        >NHTSA's official VIN tool</a>
-        and your dealer.
-      </p>
-      <nav>
-        <a href="/about/">About</a>
-        <a href="/privacy/">Privacy</a>
-        <a href="/methodology/">Methodology</a>
-      </nav>
+      <div class="site-footer-inner">
+        <div class="footer-cols">
+          <div class="footer-about">
+            <span class="brand footer-brand">
+              <span class="brand-mark" aria-hidden="true"></span>
+              <span class="brand-name on-dark">{brandSplit[0]}<span class="brand-dim">{brandSplit[1]}</span></span>
+            </span>
+            <p>
+              A free reference for U.S. vehicle recalls, complaints, and investigations, built
+              entirely on public-domain NHTSA data. Updated weekly.
+            </p>
+          </div>
+          <div class="footer-col">
+            <div class="rr-eyebrow on-dark">Sources</div>
+            <div>NHTSA Recalls flat file</div>
+            <div>NHTSA Complaints database</div>
+            <div>NHTSA Investigations</div>
+          </div>
+          <nav class="footer-col">
+            <div class="rr-eyebrow on-dark">About</div>
+            <a href="/methodology/">Methodology &amp; data</a>
+            <a href="/privacy/">Privacy &amp; cookies</a>
+            <a href="/about/">About</a>
+          </nav>
+        </div>
+        <p class="footer-legal">
+          {SITE_NAME} is not affiliated with the National Highway Traffic Safety Administration or
+          any vehicle manufacturer. Data is public domain (17 U.S.C. § 105) and provided for
+          reference only — not legal or safety advice. Verify open recalls with
+          <a
+            href="https://www.nhtsa.gov/recalls"
+            rel="noopener"
+            data-evt="outbound_nhtsa"
+            data-evt-params='{"placement":"footer"}'
+          >NHTSA's official VIN tool</a>
+          and your dealer.
+        </p>
+      </div>
     </footer>
   </body>
 </html>
 
 <style is:global>
+  /* ============================================================
+   * Recall Repo design system — tokens
+   * Cool, trust-forward palette; print-like surfaces separated by
+   * hairline rules. IBM Plex superfamily: Sans for UI, Serif for
+   * reading prose, Mono for data metadata.
+   * ============================================================ */
   :root {
-    --bg: #ffffff;
-    --fg: #1a202c;
-    --muted: #64748b;
-    --border: #e2e8f0;
-    --card-bg: #f8fafc;
-    --accent: #2563eb;
-    --badge-bg: #e0e7ff;
-    --badge-fg: #3730a3;
+    /* --- Paper (surfaces) --- */
+    --paper: #f6f7f9;
+    --paper-raised: #ffffff;
+    --paper-sunken: #edeff3;
+    --paper-ink: #16202e;
+
+    /* --- Ink (text) --- */
+    --ink-900: #16202e;
+    --ink-700: #3d4757;
+    --ink-500: #647080;
+    --ink-400: #8d97a5;
+    --ink-on-dark: #eef2f7;
+    --ink-on-dark-dim: #9daaba;
+
+    /* --- Hairlines & dividers --- */
+    --line: #e2e6ec;
+    --line-strong: #cdd4dd;
+    --line-on-dark: #2a3648;
+
+    /* --- Accent: trust blue --- */
+    --blue-50: #ecf3fb;
+    --blue-100: #d2e3f6;
+    --blue-500: #1c64b8;
+    --blue-600: #15509a;
+    --blue-700: #103d77;
+
+    /* --- Semantic: recall / warning (amber) --- */
+    --amber-50: #fbf1df;
+    --amber-100: #f4dfb6;
+    --amber-500: #b45309;
+    --amber-600: #94430a;
+
+    /* --- Semantic: severity / danger --- */
+    --red-50: #fbe9e7;
+    --red-100: #f4c9c3;
+    --red-500: #b4241c;
+    --red-600: #92180f;
+
+    /* --- Semantic: safe / free repair --- */
+    --green-50: #e9f1ea;
+    --green-100: #c6ddca;
+    --green-500: #2f6b3d;
+    --green-600: #235330;
+
+    /* --- Severity heat scale (complaint stats) --- */
+    --sev-crash: #8a6d1f;
+    --sev-fire: #c2571a;
+    --sev-injury: #b4241c;
+    --sev-death: #7a1410;
+
+    /* --- Semantic aliases --- */
+    --surface-app: var(--paper);
+    --surface-card: var(--paper-raised);
+    --surface-well: var(--paper-sunken);
+    --text-heading: var(--ink-900);
+    --text-body: var(--ink-700);
+    --text-muted: var(--ink-500);
+    --text-faint: var(--ink-400);
+    --text-link: var(--blue-500);
+    --text-link-hover: var(--blue-600);
+    --border-default: var(--line);
+    --border-strong: var(--line-strong);
+    --focus-ring: var(--blue-500);
+    --recall-accent: var(--amber-500);
+    --danger: var(--red-500);
+    --safe: var(--green-500);
+
+    /* --- Typography --- */
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-serif: 'IBM Plex Serif', ui-serif, Georgia, 'Times New Roman', serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --w-regular: 400;
+    --w-medium: 500;
+    --w-semibold: 600;
+    --w-bold: 700;
+    --fs-display: 44px;
+    --fs-h1: 32px;
+    --fs-h2: 24px;
+    --fs-h3: 19px;
+    --fs-lead: 18px;
+    --fs-body: 16px;
+    --fs-sm: 14px;
+    --fs-xs: 13px;
+    --fs-micro: 11px;
+    --lh-tight: 1.15;
+    --lh-snug: 1.3;
+    --lh-normal: 1.5;
+    --lh-relaxed: 1.65;
+    --ls-tight: -0.02em;
+    --ls-normal: 0;
+    --ls-wide: 0.02em;
+    --ls-eyebrow: 0.09em;
+    --type-display: var(--w-bold) var(--fs-display) / var(--lh-tight) var(--font-sans);
+    --type-h1: var(--w-bold) var(--fs-h1) / var(--lh-tight) var(--font-sans);
+    --type-h2: var(--w-semibold) var(--fs-h2) / var(--lh-snug) var(--font-sans);
+    --type-h3: var(--w-semibold) var(--fs-h3) / var(--lh-snug) var(--font-sans);
+    --type-lead: var(--w-regular) var(--fs-lead) / var(--lh-relaxed) var(--font-serif);
+    --type-body: var(--w-regular) var(--fs-body) / var(--lh-normal) var(--font-sans);
+    --type-prose: var(--w-regular) var(--fs-body) / var(--lh-relaxed) var(--font-serif);
+    --type-sm: var(--w-regular) var(--fs-sm) / var(--lh-normal) var(--font-sans);
+    --type-mono: var(--w-medium) var(--fs-sm) / var(--lh-normal) var(--font-mono);
+    --type-eyebrow: var(--w-semibold) var(--fs-micro) / 1 var(--font-mono);
+
+    /* --- Spacing / radii / shadows / layout --- */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-8: 32px;
+    --sp-10: 40px;
+    --sp-12: 48px;
+    --sp-16: 64px;
+    --r-xs: 3px;
+    --r-sm: 5px;
+    --r-md: 7px;
+    --r-lg: 10px;
+    --r-full: 999px;
+    --shadow-sm: 0 1px 2px rgba(22, 32, 46, 0.06);
+    --shadow-md: 0 2px 6px rgba(22, 32, 46, 0.08), 0 1px 2px rgba(22, 32, 46, 0.05);
+    --shadow-lg: 0 8px 24px rgba(22, 32, 46, 0.12);
+    --shadow-focus: 0 0 0 3px var(--blue-100);
+    --content-max: 760px;
+    --page-max: 1120px;
+    --gutter: 24px;
+    --ease: cubic-bezier(0.2, 0, 0.2, 1);
+    --dur-fast: 120ms;
+    --dur: 160ms;
+
+    /* --- Vertical rhythm (design "compact" density) --- */
+    --pagetop: 14px;
+    --sec-gap: 26px;
+    --sec-mb: 10px;
+    --stack: 8px;
+    --block: 22px;
+
+    /* --- Legacy aliases (pages styled before the design system) --- */
+    --bg: var(--paper);
+    --fg: var(--ink-900);
+    --muted: var(--ink-500);
+    --border: var(--line);
+    --card-bg: var(--paper-raised);
+    --accent: var(--blue-500);
+    --badge-bg: var(--amber-50);
+    --badge-fg: var(--amber-600);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f172a;
-      --fg: #e2e8f0;
-      --muted: #94a3b8;
-      --border: #334155;
-      --card-bg: #1e293b;
-      --accent: #60a5fa;
-      --badge-bg: #312e81;
-      --badge-fg: #c7d2fe;
-    }
-  }
-  * {
+
+  /* ============================================================
+   * Base / reset
+   * ============================================================ */
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
   }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     margin: 0;
-    font-family:
-      system-ui,
-      -apple-system,
-      'Segoe UI',
-      Roboto,
-      sans-serif;
-    line-height: 1.55;
-    color: var(--fg);
-    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-app);
+    color: var(--text-body);
+    font: var(--type-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  main {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 1rem 1.25rem 3rem;
+  body > main {
+    flex: 1 0 auto;
+    width: 100%;
   }
-  a {
-    color: var(--accent);
+  body > .site-footer {
+    flex-shrink: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    color: var(--text-heading);
+    letter-spacing: var(--ls-tight);
+    text-wrap: balance;
   }
   h1 {
-    font-size: 1.6rem;
-    line-height: 1.25;
+    font: var(--type-h1);
+    margin-bottom: var(--sp-6);
   }
   h2 {
-    font-size: 1.2rem;
-    margin-top: 2rem;
+    font: var(--type-h2);
+    margin: var(--sec-gap) 0 var(--sec-mb);
   }
+  h3 {
+    font: var(--type-h3);
+    letter-spacing: var(--ls-normal);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  a {
+    color: var(--text-link);
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease);
+  }
+  a:hover {
+    color: var(--text-link-hover);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--r-xs);
+  }
+
+  /* Data metadata convenience class */
+  .rr-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Uppercase eyebrow / overline */
+  .rr-eyebrow {
+    font: var(--type-eyebrow);
+    letter-spacing: var(--ls-eyebrow);
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* ============================================================
+   * Page containers
+   * ============================================================ */
+  main.container-narrow {
+    max-width: calc(var(--content-max) + 2 * var(--gutter));
+    margin: 0 auto;
+    padding: var(--pagetop) var(--gutter) var(--sp-16);
+  }
+  main.container-wide {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: var(--pagetop) var(--gutter) var(--sp-16);
+  }
+  main.container-none {
+    padding: 0;
+  }
+
+  /* ============================================================
+   * Site chrome
+   * ============================================================ */
   .site-header {
+    border-bottom: 1px solid var(--border-default);
+    background: var(--paper-raised);
+  }
+  .site-header-inner {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 14px var(--gutter);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--border);
+    gap: var(--sp-6);
   }
-  .site-header .brand {
-    font-weight: 700;
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
     text-decoration: none;
-    color: var(--fg);
-    font-size: 1.1rem;
+  }
+  .brand:hover {
+    text-decoration: none;
+  }
+  .brand-mark {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--blue-500);
+    flex-shrink: 0;
+  }
+  .brand-name {
+    font-family: var(--font-sans);
+    font-weight: var(--w-bold);
+    font-size: 19px;
+    letter-spacing: var(--ls-tight);
+    color: var(--ink-900);
+  }
+  .brand-name .brand-dim {
+    color: var(--ink-500);
+    font-weight: var(--w-semibold);
+  }
+  .brand-name.on-dark {
+    color: var(--ink-on-dark);
+  }
+  .brand-name.on-dark .brand-dim {
+    color: var(--ink-on-dark-dim);
   }
   .site-header nav {
+    margin-left: auto;
     display: flex;
-    gap: 1rem;
-    font-size: 0.9rem;
+    gap: 22px;
+    font-size: var(--fs-sm);
+    font-weight: var(--w-medium);
   }
+  .site-header nav a {
+    color: var(--ink-700);
+  }
+  .site-header nav a.nav-vin {
+    color: var(--text-link);
+  }
+
   .site-footer {
-    border-top: 1px solid var(--border);
-    padding: 1.5rem 1.25rem 2.5rem;
-    font-size: 0.82rem;
-    color: var(--muted);
-    max-width: 860px;
+    background: var(--paper-ink);
+    color: var(--ink-on-dark-dim);
+    margin-top: calc(var(--block) * 1.6);
+  }
+  .site-footer-inner {
+    max-width: var(--page-max);
     margin: 0 auto;
+    padding: var(--sp-10) var(--gutter);
   }
-  .site-footer nav {
+  .footer-cols {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: var(--sp-8);
+    justify-content: space-between;
+    align-items: flex-start;
   }
+  .footer-about {
+    max-width: 380px;
+  }
+  .footer-about p {
+    margin: 14px 0 0;
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    font-family: var(--font-serif);
+  }
+  .footer-col {
+    display: flex;
+    flex-direction: column;
+    font-size: var(--fs-sm);
+    line-height: 2;
+  }
+  .footer-col .rr-eyebrow {
+    margin-bottom: 6px;
+  }
+  .rr-eyebrow.on-dark {
+    color: var(--ink-on-dark);
+  }
+  .footer-col a {
+    color: var(--ink-on-dark-dim);
+  }
+  .footer-col a:hover {
+    color: var(--ink-on-dark);
+  }
+  .footer-legal {
+    margin: var(--sp-8) 0 0;
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--line-on-dark);
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+  }
+  .footer-legal a {
+    color: var(--ink-on-dark);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ============================================================
+   * Shared page primitives (used across entity + static pages)
+   * ============================================================ */
   .answer-box {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--accent);
-    border-radius: 8px;
-    padding: 0.9rem 1.1rem;
-    font-size: 1.02rem;
+    background: var(--surface-well);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    padding: var(--sp-5) var(--sp-6);
+    font: var(--type-lead);
+    color: var(--ink-900);
   }
+
   .vin-cta {
-    background: var(--badge-bg);
-    color: var(--badge-fg);
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 1.5rem 0;
+    margin: var(--block) 0;
+    padding: 28px;
+    background: var(--surface-well);
+    border-radius: var(--r-lg);
+    text-align: center;
+    font: var(--type-prose);
+    color: var(--ink-700);
+  }
+  .vin-cta strong {
+    display: block;
+    font: var(--type-h3);
+    color: var(--text-heading);
+    margin-bottom: var(--sp-2);
   }
   .vin-cta a {
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: var(--sp-4);
+    padding: 10px 18px;
+    background: var(--paper-ink);
+    color: var(--ink-on-dark);
+    border: 1px solid var(--paper-ink);
+    border-radius: var(--r-sm);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    font-weight: var(--w-semibold);
+    line-height: 1;
+    white-space: normal;
   }
+  .vin-cta a:hover {
+    text-decoration: none;
+    color: var(--ink-on-dark);
+    background: #22304a;
+  }
+
   .link-columns {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 0.25rem 1rem;
+    gap: 7px 1rem;
     padding: 0;
     list-style: none;
   }
+  .link-columns a {
+    font-size: var(--fs-sm);
+  }
+
   table.hub-table {
     border-collapse: collapse;
     width: 100%;
-    font-size: 0.9rem;
+    font-size: var(--fs-sm);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  table.hub-table thead th {
+    font: var(--type-eyebrow);
+    letter-spacing: var(--ls-eyebrow);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: var(--paper-sunken);
+    border-bottom: 1px solid var(--border-strong);
   }
   table.hub-table th,
   table.hub-table td {
     text-align: left;
-    padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid var(--border);
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border-default);
+  }
+  table.hub-table tbody tr:last-child th,
+  table.hub-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  table.hub-table td {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .muted-note {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 720px) {
+    :root {
+      --fs-display: 34px;
+      --fs-h1: 26px;
+      --fs-h2: 21px;
+    }
+    .site-header-inner {
+      flex-wrap: wrap;
+      gap: var(--sp-3);
+    }
+    .site-header nav {
+      gap: 14px;
+    }
   }
 </style>

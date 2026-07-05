@@ -1,5 +1,5 @@
 ---
-/** Home: search + browse (prerendered — no Firestore read). */
+/** Home: hero search + browse-by-make grid (prerendered — no Firestore read). */
 import SearchBox from '../components/SearchBox.astro';
 import Layout from '../layouts/Layout.astro';
 import { buildPageDims } from '../lib/ga';
@@ -24,30 +24,50 @@ const dims = buildPageDims({ kind: 'home' });
   description="Look up NHTSA recalls, owner complaints, and defect investigations for any vehicle — free, fast, and sourced from official government data updated weekly."
   canonicalPath="/"
   dims={dims}
+  container="none"
 >
-  <h1>Does your car have a recall?</h1>
-  <p>
-    Every NHTSA recall, complaint, and defect investigation — organized by year, make, and
-    model. Free repairs, real government data, updated weekly.
-  </p>
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="rr-eyebrow">Official NHTSA data · updated weekly</div>
+      <h1>Is your car recalled?</h1>
+      <p class="lead">
+        Look up recalls, complaints, and investigations for any U.S. vehicle — one clean page
+        per year, make, and model.
+      </p>
+      <div class="hero-search">
+        <SearchBox size="lg" />
+        <p class="hint">
+          Try &ldquo;2016 Honda CR-V&rdquo; · or
+          <a
+            href="https://www.nhtsa.gov/recalls"
+            rel="noopener"
+            data-evt="outbound_nhtsa"
+            data-evt-params='{"placement":"home"}'
+          >check your VIN at NHTSA →</a>
+        </p>
+      </div>
+    </div>
+  </section>
 
-  <SearchBox />
-
-  <section>
-    <h2>Browse by make</h2>
-    <ul class="link-columns">
+  <section class="makes" id="makes">
+    <div class="makes-head">
+      <h2>Browse by make</h2>
+      <span class="muted-note">Every NHTSA recall, complaint, and investigation</span>
+    </div>
+    <div class="make-grid">
       {
         popularMakes.map(([slug, display]) => (
-          <li>
-            <a href={`/recalls/${slug}/`}>{display} recalls</a>
-          </li>
+          <a class="make-card" href={`/recalls/${slug}/`}>
+            <span class="make-name">{display}</span>
+            <span class="make-meta">View recalls →</span>
+          </a>
         ))
       }
-    </ul>
+    </div>
     <p class="muted-note">Can't find your make? Use the search box above — it covers everything.</p>
   </section>
 
-  <section>
+  <section class="vin-note">
     <h2>Have your VIN handy?</h2>
     <p>
       <a href="/vin/">Decode your VIN</a> to jump straight to your vehicle's recall page, or use
@@ -63,8 +83,113 @@ const dims = buildPageDims({ kind: 'home' });
 </Layout>
 
 <style>
-  .muted-note {
-    font-size: 0.85rem;
-    color: var(--muted);
+  .hero {
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--border-default);
+  }
+  .hero-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 72px var(--gutter) 64px;
+    text-align: center;
+  }
+  .hero .rr-eyebrow {
+    margin-bottom: var(--sp-4);
+  }
+  .hero h1 {
+    font: var(--type-display);
+    letter-spacing: var(--ls-tight);
+    margin: 0 0 var(--sp-4);
+  }
+  .hero .lead {
+    font: var(--type-lead);
+    color: var(--ink-700);
+    max-width: 540px;
+    margin: 0 auto var(--sp-8);
+  }
+  .hero-search {
+    max-width: 520px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .hero-search :global(.searchbox) {
+    max-width: none;
+  }
+  .hint {
+    margin-top: var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .makes,
+  .vin-note {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+  .makes {
+    padding-top: 56px;
+  }
+  .makes-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-5);
+    flex-wrap: wrap;
+  }
+  .makes-head h2 {
+    margin: 0;
+  }
+  .make-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+  }
+  .make-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4) 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    text-decoration: none;
+    color: var(--ink-900);
+    transition:
+      border-color var(--dur-fast) var(--ease),
+      box-shadow var(--dur-fast) var(--ease);
+  }
+  .make-card:hover {
+    text-decoration: none;
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+    color: var(--ink-900);
+  }
+  .make-name {
+    font-size: var(--fs-h3);
+    font-weight: var(--w-semibold);
+  }
+  .make-meta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+
+  .vin-note {
+    padding-bottom: var(--sp-8);
+  }
+  .vin-note p {
+    max-width: var(--content-max);
+    font: var(--type-prose);
+    color: var(--ink-700);
+  }
+
+  @media (max-width: 720px) {
+    .hero-inner {
+      padding: 48px var(--gutter) 44px;
+    }
   }
 </style>

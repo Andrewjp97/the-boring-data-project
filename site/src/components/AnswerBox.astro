@@ -1,0 +1,69 @@
+---
+/**
+ * AnswerBox — the direct-answer well at the top of entity pages. Status
+ * header ("Recalls on record" / "No recalls on record") with a semantic dot,
+ * an "Updated <month year>" stamp, and serif lead prose in the slot.
+ */
+interface Props {
+  tone?: 'recall' | 'clear';
+  updated?: string;
+}
+
+const { tone = 'recall', updated } = Astro.props;
+const clear = tone === 'clear';
+const label = clear ? 'No recalls on record' : 'Recalls on record';
+---
+
+<div class="answer-box-card">
+  <div class="head">
+    <span class={`dot ${clear ? 'clear' : 'recall'}`} aria-hidden="true"></span>
+    <span class="label rr-eyebrow">{label}</span>
+    {updated && <span class="updated">Updated {updated}</span>}
+  </div>
+  <p><slot /></p>
+</div>
+
+<style>
+  .answer-box-card {
+    background: var(--surface-well);
+    border-radius: var(--r-md);
+    border: 1px solid var(--border-default);
+    padding: var(--sp-5) var(--sp-6);
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: var(--sp-3);
+    margin-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--border-default);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--r-full);
+    flex-shrink: 0;
+  }
+  .dot.recall {
+    background: var(--amber-500);
+  }
+  .dot.clear {
+    background: var(--green-500);
+  }
+  .label {
+    color: var(--text-body);
+  }
+  .updated {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .answer-box-card p {
+    font: var(--type-lead);
+    color: var(--ink-900);
+    margin: 0;
+  }
+</style>

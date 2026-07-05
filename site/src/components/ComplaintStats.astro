@@ -1,7 +1,9 @@
 ---
 /**
- * Component complaint table + inline SVG bar chart (SPEC §5, section 5).
- * No chart library — widths are computed server-side.
+ * ComplaintStats — the top-components table with crash/fire/injury/death
+ * counts and an inline bar chart (SPEC §5, section 5; no chart library —
+ * widths are computed server-side). Each row: component name, a horizontal
+ * bar sized to its complaint share, the complaint count, and severity chips.
  */
 interface Stat {
   component: string;
@@ -19,89 +21,168 @@ interface Props {
 
 const { stats, total } = Astro.props;
 const max = Math.max(1, ...stats.map((s) => s.count));
-const BAR_W = 220;
+const sevMeta = [
+  { key: 'crashes', label: 'crashes', cls: 'crash' },
+  { key: 'fires', label: 'fires', cls: 'fire' },
+  { key: 'injuries', label: 'injuries', cls: 'injury' },
+  { key: 'deaths', label: 'deaths', cls: 'death' },
+] as const;
 ---
 
 {
   stats.length > 0 && (
     <div class="complaint-stats">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Component</th>
-            <th scope="col">Complaints</th>
-            <th scope="col" class="num">Crashes</th>
-            <th scope="col" class="num">Fires</th>
-            <th scope="col" class="num">Injuries</th>
-            <th scope="col" class="num">Deaths</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.map((s) => (
-            <tr>
-              <th scope="row">{s.component}</th>
-              <td>
-                <svg
-                  width={BAR_W}
-                  height="16"
-                  viewBox={`0 0 ${BAR_W} 16`}
-                  role="img"
-                  aria-label={`${s.count} complaints`}
-                >
-                  <rect
-                    width={Math.max(2, Math.round((s.count / max) * (BAR_W - 44)))}
-                    height="16"
-                    rx="3"
-                    fill="var(--accent)"
-                  />
-                  <text
-                    x={Math.max(2, Math.round((s.count / max) * (BAR_W - 44))) + 6}
-                    y="12"
-                    font-size="11"
-                    fill="currentColor"
-                  >
-                    {s.count}
-                  </text>
-                </svg>
-              </td>
-              <td class="num">{s.crashes}</td>
-              <td class="num">{s.fires}</td>
-              <td class="num">{s.injuries}</td>
-              <td class="num">{s.deaths}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p class="note">
-        Top components across {total.toLocaleString('en-US')} NHTSA complaints for this vehicle.
-      </p>
+      {stats.map((s, i) => (
+        <div class={`row${i % 2 ? ' zebra' : ''}`}>
+          <div class="name">{s.component}</div>
+          <div class="bar-cell">
+            <div class="track" role="img" aria-label={`${s.count} complaints`}>
+              <div class="bar" style={`width:${Math.round((s.count / max) * 100)}%`} />
+            </div>
+            <span class="count">{s.count.toLocaleString('en-US')}</span>
+          </div>
+          <div class="sev">
+            {sevMeta.map((m) =>
+              s[m.key] ? (
+                <span class={`chip ${m.cls}`} title={m.label}>
+                  <span class="dot" aria-hidden="true" />
+                  {s[m.key]}
+                  <span class="sr-only"> {m.label}</span>
+                </span>
+              ) : null,
+            )}
+          </div>
+        </div>
+      ))}
+      <div class="total">
+        <span class="total-label">Total complaints</span>
+        <span class="total-count">{total.toLocaleString('en-US')}</span>
+      </div>
     </div>
   )
 }
 
 <style>
   .complaint-stats {
-    overflow-x: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-card);
   }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 0.88rem;
+  .row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1.4fr) minmax(120px, 2fr) auto;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--border-default);
   }
-  th,
-  td {
-    text-align: left;
-    padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid var(--border);
+  .row:first-child {
+    border-top: none;
   }
-  th[scope='row'] {
-    font-weight: 500;
+  .row.zebra {
+    background: var(--paper-sunken);
   }
-  .num {
+  .name {
+    font: var(--type-sm);
+    font-weight: var(--w-medium);
+    color: var(--ink-900);
+  }
+  .bar-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .track {
+    flex: 1;
+    height: 10px;
+    background: var(--paper-sunken);
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 40px;
+  }
+  .bar {
+    height: 100%;
+    background: var(--ink-700);
+    border-radius: 2px;
+  }
+  .count {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--ink-900);
+    font-variant-numeric: tabular-nums;
+    min-width: 34px;
     text-align: right;
   }
-  .note {
-    font-size: 0.8rem;
-    color: var(--muted);
+  .sev {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  .chip .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--r-full);
+    display: inline-block;
+    background: currentColor;
+  }
+  .chip.crash {
+    color: var(--sev-crash);
+  }
+  .chip.fire {
+    color: var(--sev-fire);
+  }
+  .chip.injury {
+    color: var(--sev-injury);
+  }
+  .chip.death {
+    color: var(--sev-death);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .total {
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--border-strong);
+    background: var(--paper-sunken);
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+  .total-label {
+    text-transform: uppercase;
+    letter-spacing: var(--ls-eyebrow);
+    font-weight: var(--w-semibold);
+  }
+  .total-count {
+    font-family: var(--font-mono);
+    color: var(--ink-900);
+    font-weight: var(--w-semibold);
+  }
+  @media (max-width: 560px) {
+    .row {
+      grid-template-columns: 1fr;
+      gap: var(--sp-2);
+    }
+    .sev {
+      justify-content: flex-start;
+    }
   }
 </style>

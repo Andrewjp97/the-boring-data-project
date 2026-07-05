@@ -1,7 +1,11 @@
 ---
-/** ★ PRIMARY money page: /recalls/{make}/{model}/{year}/ (SPEC §5). */
+/** ★ PRIMARY money page: /recalls/{make}/{model}/{year}/ (SPEC §5).
+ * Design: "Year page — B, reading column + sticky utility rail" (Year Page
+ * Explorations): main reading column plus a sticky rail with at-a-glance
+ * metrics, an on-page TOC, the VIN CTA, and a rail ad. */
 import AdSlot from '../../../../../components/AdSlot.astro';
 import AffiliateBlock from '../../../../../components/AffiliateBlock.astro';
+import AnswerBox from '../../../../../components/AnswerBox.astro';
 import Breadcrumbs from '../../../../../components/Breadcrumbs.astro';
 import ComplaintStats from '../../../../../components/ComplaintStats.astro';
 import RecallCard from '../../../../../components/RecallCard.astro';
@@ -26,6 +30,7 @@ if (!doc) return Astro.rewrite('/404');
 setPageCache(Astro.response);
 
 const bits = { make: doc.make.display, model: doc.model.display, year: doc.year };
+const label = `${doc.year} ${doc.make.display} ${doc.model.display}`;
 const recalls = doc.recalls ?? [];
 const stats = doc.complaintStats ?? [];
 const samples = doc.complaintSamples ?? [];
@@ -36,6 +41,11 @@ const updatedHuman = updatedDate.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
+  timeZone: 'UTC',
+});
+const updatedMonth = updatedDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
   timeZone: 'UTC',
 });
 
@@ -60,6 +70,20 @@ const dims = buildPageDims({
   indexable: doc.indexable,
 });
 const nhtsaVinUrl = 'https://www.nhtsa.gov/recalls';
+
+const hasRelated =
+  doc.nav.years.length > 0 ||
+  doc.nav.siblingModels.length > 0 ||
+  doc.nav.relatedByComponent.length > 0;
+
+// On-page TOC: only sections that actually render.
+const toc = [
+  recalls.length > 0 && { id: 'recalls', label: 'Recall campaigns' },
+  stats.length > 0 && { id: 'complaints', label: 'Complaints by component' },
+  samples.length > 0 && { id: 'owner-reports', label: 'What owners report' },
+  investigations.length > 0 && { id: 'investigations', label: 'Defect investigations' },
+  hasRelated && { id: 'related', label: 'Related pages' },
+].filter(Boolean) as { id: string; label: string }[];
 ---
 
 <Layout
@@ -69,196 +93,471 @@ const nhtsaVinUrl = 'https://www.nhtsa.gov/recalls';
   indexable={doc.indexable}
   jsonLd={jsonLd}
   dims={dims}
+  container="wide"
 >
   <Breadcrumbs crumbs={crumbs} />
-  <h1>
-    {doc.year} {doc.make.display} {doc.model.display} Recalls ({doc.recallCount}
-    {doc.recallCount === 1 ? 'Recall' : 'Recalls'}, {fmtInt(doc.complaintTotal)}
-    {doc.complaintTotal === 1 ? 'Complaint' : 'Complaints'})
-  </h1>
+  <h1>{label} Recalls</h1>
 
-  <p class="answer-box">
-    {
-      answerBox(
-        bits,
-        doc.recallCount,
-        doc.totalAffected ?? 0,
-        doc.complaintTotal,
-        topComponent,
-        updatedHuman,
-      )
-    }
-  </p>
+  <div class="year-grid">
+    <div class="reading-col">
+      <AnswerBox tone={doc.recallCount > 0 ? 'recall' : 'clear'} updated={updatedMonth}>
+        {
+          answerBox(
+            bits,
+            doc.recallCount,
+            doc.totalAffected ?? 0,
+            doc.complaintTotal,
+            topComponent,
+            updatedHuman,
+          )
+        }
+      </AnswerBox>
 
-  {
-    recalls.length > 0 && (
-      <section>
-        <h2>NHTSA recall campaigns</h2>
-        {recalls.map((r: any) => (
-          <RecallCard recall={r} />
-        ))}
-      </section>
-    )
-  }
+      {
+        recalls.length > 0 && (
+          <section id="recalls">
+            <h2>Recall campaigns</h2>
+            <div class="card-stack">
+              {recalls.map((r: any) => (
+                <RecallCard recall={r} />
+              ))}
+            </div>
+          </section>
+        )
+      }
 
-  <AdSlot placement="year-page-1" />
+      <AdSlot placement="year-page-1" minHeight={110} />
 
-  {
-    stats.length > 0 && (
-      <section>
-        <h2>What owners complain about</h2>
-        <ComplaintStats stats={stats} total={doc.complaintTotal} />
-      </section>
-    )
-  }
+      {
+        stats.length > 0 && (
+          <section id="complaints">
+            <h2>Complaints by component</h2>
+            <ComplaintStats stats={stats} total={doc.complaintTotal} />
+          </section>
+        )
+      }
 
-  {
-    samples.length > 0 && (
-      <section>
-        <h2>Sample complaints</h2>
-        <p class="muted-note">
-          Verbatim reports filed with NHTSA, lightly edited for readability and with personal
-          information removed.
+      <AdSlot placement="year-page-mid" minHeight={250} />
+
+      {
+        samples.length > 0 && (
+          <section id="owner-reports">
+            <h2>What owners report</h2>
+            <p class="muted-note">
+              Verbatim reports filed with NHTSA, lightly edited for readability and with personal
+              information removed.
+            </p>
+            <div class="card-stack">
+              {samples.map((s: any) => (
+                <blockquote class="complaint-sample">
+                  <p>&ldquo;{s.narrative}&rdquo;</p>
+                  <footer>
+                    {s.component} {s.failDate && `· reported ${s.failDate}`}
+                  </footer>
+                </blockquote>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        investigations.length > 0 && (
+          <section id="investigations">
+            <h2>Defect investigations</h2>
+            <div class="card-stack">
+              {investigations.map((inv: any) => (
+                <div class="investigation">
+                  <div class="inv-head">
+                    <span class="badge info">Investigation</span>
+                    <span class="badge neutral mono">{inv.actionNumber}</span>
+                    <span class="inv-dates">
+                      {inv.openDate && `Opened ${inv.openDate}`}
+                      {inv.openDate && (inv.closeDate ? ` · closed ${inv.closeDate}` : ' · open')}
+                    </span>
+                  </div>
+                  <h3>{inv.subject}</h3>
+                  {inv.summary && <p>{inv.summary}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        hasRelated && (
+          <section id="related">
+            <h2>Related pages</h2>
+            <div class="link-groups">
+              {doc.nav.years.length > 0 && (
+                <div class="link-group">
+                  <div class="rr-eyebrow">Other years</div>
+                  <ul>
+                    {doc.nav.years.map((y: number) => (
+                      <li>
+                        <a
+                          href={`/recalls/${doc.make.slug}/${doc.model.slug}/${y}/`}
+                          data-evt="related_link_click"
+                          data-evt-params='{"link_type":"year"}'
+                        >
+                          {y} {doc.make.display} {doc.model.display}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {doc.nav.siblingModels.length > 0 && (
+                <div class="link-group">
+                  <div class="rr-eyebrow">Other {doc.make.display} models</div>
+                  <ul>
+                    {doc.nav.siblingModels.map((m: any) => (
+                      <li>
+                        <a
+                          href={`/recalls/${doc.make.slug}/${m.slug}/`}
+                          data-evt="related_link_click"
+                          data-evt-params='{"link_type":"sibling"}'
+                        >
+                          {doc.make.display} {m.display}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {doc.nav.relatedByComponent.length > 0 && (
+                <div class="link-group">
+                  <div class="rr-eyebrow">Same defect, other makes</div>
+                  <ul>
+                    {doc.nav.relatedByComponent.map((m: any) => (
+                      <li>
+                        <a
+                          href={`/${m.slug}/`}
+                          data-evt="related_link_click"
+                          data-evt-params='{"link_type":"component"}'
+                        >
+                          {m.display}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+        )
+      }
+
+      <AffiliateBlock
+        topComponent={topComponent}
+        make={doc.make.display}
+        model={doc.model.display}
+        year={doc.year}
+      />
+
+      <AdSlot placement="year-page-2" minHeight={110} />
+
+      <div class="sources">
+        <div class="rr-eyebrow">Sources &amp; methodology</div>
+        <p>
+          Recall, complaint, and investigation records from official NHTSA datasets (FLAT_RCL,
+          FLAT_CMPL, FLAT_INV), synced weekly. Counts reflect NHTSA records for the {label} as of
+          {updatedHuman}. Complaint narratives are consumer-submitted and unverified. This page
+          contains ads and affiliate links. <a href="/methodology/">Full methodology</a>.
         </p>
-        {samples.map((s: any) => (
-          <blockquote class="complaint-sample">
-            <p>{s.narrative}</p>
-            <footer>
-              {s.component} {s.failDate && `· ${s.failDate}`}
-            </footer>
-          </blockquote>
-        ))}
-      </section>
-    )
-  }
+      </div>
+    </div>
 
-  {
-    investigations.length > 0 && (
-      <section>
-        <h2>NHTSA defect investigations</h2>
-        <ul>
-          {investigations.map((inv: any) => (
-            <li>
-              <strong>{inv.actionNumber}</strong> — {inv.subject}
-              {inv.openDate && ` (opened ${inv.openDate}${inv.closeDate ? `, closed ${inv.closeDate}` : ', open'})`}
-              {inv.summary && <p>{inv.summary}</p>}
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
+    <aside class="rail">
+      <div class="rail-card">
+        <div class="rr-eyebrow rail-head">At a glance</div>
+        <div class="rail-stat">
+          <span class="stat-label">Recalls</span>
+          <span class="stat-value accent">{fmtInt(doc.recallCount)}</span>
+        </div>
+        {
+          (doc.totalAffected ?? 0) > 0 && (
+            <div class="rail-stat">
+              <span class="stat-label">Vehicles affected (est.)</span>
+              <span class="stat-value">{fmtInt(doc.totalAffected)}</span>
+            </div>
+          )
+        }
+        <div class="rail-stat last">
+          <span class="stat-label">Complaints</span>
+          <span class="stat-value">{fmtInt(doc.complaintTotal)}</span>
+        </div>
+      </div>
 
-  <div class="vin-cta">
-    <strong>Is your specific vehicle affected?</strong> Recalls apply to VIN ranges, not every
-    car of a model year.
-    <a
-      href={nhtsaVinUrl}
-      rel="noopener"
-      data-evt="outbound_nhtsa"
-      data-evt-params='{"placement":"vin_cta"}'
-    >
-      Check your VIN on NHTSA's official recall lookup →
-    </a>
+      {
+        toc.length > 0 && (
+          <nav class="rail-card" aria-label="On this page">
+            <div class="rr-eyebrow rail-head">On this page</div>
+            <ol class="toc">
+              {toc.map((t, i) => (
+                <li>
+                  <span class="toc-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                  <a href={`#${t.id}`}>{t.label}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )
+      }
+
+      <div class="rail-card well">
+        <h3>Check your VIN</h3>
+        <p>See open, unrepaired recalls for your exact vehicle. Repairs are free.</p>
+        <a
+          class="vin-button"
+          href={nhtsaVinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-evt="outbound_nhtsa"
+          data-evt-params='{"placement":"vin_cta"}'
+        >
+          Look up at NHTSA ↗
+        </a>
+      </div>
+
+      <AdSlot placement="year-page-rail" minHeight={250} />
+    </aside>
   </div>
-
-  <section>
-    <h2>Related</h2>
-    {
-      doc.nav.years.length > 0 && (
-        <p>
-          Other years:{' '}
-          {doc.nav.years.map((y: number, i: number) => (
-            <>
-              {i > 0 && ' · '}
-              <a
-                href={`/recalls/${doc.make.slug}/${doc.model.slug}/${y}/`}
-                data-evt="related_link_click"
-                data-evt-params='{"link_type":"year"}'
-              >
-                {y} {doc.make.display} {doc.model.display}
-              </a>
-            </>
-          ))}
-        </p>
-      )
-    }
-    {
-      doc.nav.siblingModels.length > 0 && (
-        <p>
-          More {doc.make.display} models:{' '}
-          {doc.nav.siblingModels.map((m: any, i: number) => (
-            <>
-              {i > 0 && ' · '}
-              <a
-                href={`/recalls/${doc.make.slug}/${m.slug}/`}
-                data-evt="related_link_click"
-                data-evt-params='{"link_type":"sibling"}'
-              >
-                {m.display}
-              </a>
-            </>
-          ))}
-        </p>
-      )
-    }
-    {
-      doc.nav.relatedByComponent.length > 0 && (
-        <p>
-          Similar {doc.nav.relatedByComponent[0].label.toLowerCase()} recalls:{' '}
-          {doc.nav.relatedByComponent.map((m: any, i: number) => (
-            <>
-              {i > 0 && ' · '}
-              <a
-                href={`/${m.slug}/`}
-                data-evt="related_link_click"
-                data-evt-params='{"link_type":"component"}'
-              >
-                {m.display}
-              </a>
-            </>
-          ))}
-        </p>
-      )
-    }
-  </section>
-
-  <AffiliateBlock
-    topComponent={topComponent}
-    make={doc.make.display}
-    model={doc.model.display}
-    year={doc.year}
-  />
-
-  <AdSlot placement="year-page-2" minHeight={250} />
-
-  <section class="sources">
-    <h2>Sources &amp; methodology</h2>
-    <p>
-      Recall, complaint, and investigation data comes from NHTSA's public flat-file datasets
-      (FLAT_RCL, FLAT_CMPL, FLAT_INV), synced weekly. Counts reflect NHTSA records for the
-      {doc.year} {doc.make.display} {doc.model.display} as of {updatedHuman}. Complaint
-      narratives are consumer-submitted and unverified. <a href="/methodology/">Full methodology</a>.
-    </p>
-  </section>
 </Layout>
 
 <style>
+  .year-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--sp-12);
+    align-items: start;
+  }
+  .reading-col {
+    max-width: 740px;
+    min-width: 0;
+  }
+  .card-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--stack);
+  }
+
   .complaint-sample {
-    margin: 0 0 1rem;
-    padding: 0.75rem 1rem;
-    border-left: 3px solid var(--border);
-    background: var(--card-bg);
-    font-size: 0.92rem;
+    margin: 0;
+    padding: 14px 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+  }
+  .complaint-sample p {
+    font: var(--type-prose);
+    color: var(--ink-700);
+    font-size: var(--fs-sm);
+    margin: 0;
   }
   .complaint-sample footer {
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-top: 0.35rem;
+    margin-top: var(--sp-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
   }
-  .muted-note,
+
+  .investigation {
+    padding: var(--sp-4) 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+  }
+  .inv-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--sp-2);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-sans);
+    font-weight: var(--w-semibold);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: var(--r-xs);
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+  .badge.info {
+    color: var(--blue-600);
+    background: var(--blue-50);
+    border: 1px solid var(--blue-100);
+  }
+  .badge.neutral {
+    color: var(--ink-700);
+    background: var(--paper-sunken);
+    border: 1px solid var(--line-strong);
+  }
+  .badge.mono {
+    font-family: var(--font-mono);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .inv-dates {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+  .investigation h3 {
+    margin: 0 0 4px;
+  }
+  .investigation p {
+    font: var(--type-prose);
+    font-size: var(--fs-sm);
+    color: var(--ink-700);
+    margin: 0;
+  }
+
+  .link-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--sp-5);
+  }
+  .link-group .rr-eyebrow {
+    margin-bottom: 10px;
+  }
+  .link-group ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .link-group a {
+    font-size: var(--fs-sm);
+  }
+
+  .sources {
+    margin-top: var(--block);
+    padding-top: 18px;
+    border-top: 1px solid var(--border-default);
+  }
+  .sources .rr-eyebrow {
+    margin-bottom: var(--sp-2);
+  }
   .sources p {
-    font-size: 0.85rem;
-    color: var(--muted);
+    font: var(--type-prose);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  /* --- Sticky rail --- */
+  .rail {
+    position: sticky;
+    top: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .rail-card {
+    padding: var(--sp-4) 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+  }
+  .rail-card.well {
+    background: var(--surface-well);
+  }
+  .rail-head {
+    margin-bottom: var(--sp-3);
+  }
+  .rail-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .rail-stat.last {
+    border-bottom: none;
+  }
+  .stat-label {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+  }
+  .stat-value {
+    font-family: var(--font-mono);
+    font-weight: var(--w-semibold);
+    font-size: var(--fs-body);
+    color: var(--ink-900);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value.accent {
+    color: var(--amber-500);
+  }
+  .toc {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toc li {
+    display: flex;
+    gap: 9px;
+    align-items: baseline;
+  }
+  .toc-num {
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    color: var(--text-faint);
+  }
+  .toc a {
+    font-size: var(--fs-sm);
+  }
+  .rail-card h3 {
+    margin: 0 0 6px;
+  }
+  .rail-card.well p {
+    font: var(--type-prose);
+    font-size: var(--fs-sm);
+    color: var(--ink-700);
+    margin: 0 0 14px;
+  }
+  .vin-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: var(--paper-ink);
+    color: var(--ink-on-dark);
+    border: 1px solid var(--paper-ink);
+    border-radius: var(--r-sm);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    font-weight: var(--w-semibold);
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .vin-button:hover {
+    text-decoration: none;
+    color: var(--ink-on-dark);
+    background: #22304a;
+  }
+
+  @media (max-width: 980px) {
+    .year-grid {
+      grid-template-columns: 1fr;
+      gap: var(--sp-8);
+    }
+    .rail {
+      position: static;
+    }
   }
 </style>

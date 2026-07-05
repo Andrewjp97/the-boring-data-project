@@ -2,6 +2,7 @@
 /**
  * Component-keyword-mapped Amazon picks (SPEC §8.6). Renders only when
  * PUBLIC_AMAZON_TAG is set. rel="sponsored", labeled, FTC disclosure.
+ * Card with a "Sponsored" eyebrow and a grid of product links.
  */
 import affiliateMap from '../data/affiliate-map.json';
 
@@ -13,7 +14,7 @@ interface Props {
 }
 
 const { topComponent, make, model, year } = Astro.props;
-const tag = import.meta.env.PUBLIC_AMAZON_TAG; // e.g. recalllookup-20
+const tag = import.meta.env.PUBLIC_AMAZON_TAG; // e.g. recallrepo-20
 
 interface Product {
   asin: string;
@@ -49,34 +50,37 @@ function productUrl(p: Product): string {
 {
   tag && groups.length > 0 && (
     <aside class="affiliate-block">
-      <h2>Owner tools</h2>
+      <div class="head">
+        <h3>Owner tools</h3>
+        <span class="rr-eyebrow sponsored">Sponsored</span>
+      </div>
       {groups.map((g) => (
         <div class="group">
-          <h3>{g.heading}</h3>
-          <ul>
+          <div class="rr-eyebrow group-heading">{g.heading}</div>
+          <div class="products">
             {g.products
               .filter((p) => !p.asin.startsWith('PLACEHOLDER') || p.searchTemplate)
               .map((p) => (
-                <li>
-                  <a
-                    href={productUrl(p)}
-                    rel="sponsored nofollow noopener"
-                    target="_blank"
-                    data-evt="affiliate_click"
-                    data-evt-params={JSON.stringify({
-                      component: comp || 'none',
-                      asin_group: g.asinGroup,
-                    })}
-                  >
-                    {p.title}
-                  </a>
-                </li>
+                <a
+                  href={productUrl(p)}
+                  rel="sponsored nofollow noopener"
+                  target="_blank"
+                  data-evt="affiliate_click"
+                  data-evt-params={JSON.stringify({
+                    component: comp || 'none',
+                    asin_group: g.asinGroup,
+                  })}
+                >
+                  <span class="title">{p.title}</span>
+                  <span class="cta">View on Amazon →</span>
+                </a>
               ))}
-          </ul>
+          </div>
         </div>
       ))}
       <p class="disclosure">
-        As an Amazon Associate we earn from qualifying purchases. Links above are sponsored.
+        As an Amazon Associate we earn from qualifying purchases. This does not affect the recall
+        data above.
       </p>
     </aside>
   )
@@ -84,23 +88,68 @@ function productUrl(p: Product): string {
 
 <style>
   .affiliate-block {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 1.5rem 0;
-    background: var(--card-bg);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    padding: var(--sp-5);
+    margin: var(--block) 0;
   }
-  .affiliate-block h2 {
-    font-size: 1rem;
-    margin-top: 0;
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
   }
-  .affiliate-block h3 {
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
+  .head h3 {
+    margin: 0;
+  }
+  .sponsored {
+    color: var(--text-faint);
+  }
+  .group + .group {
+    margin-top: var(--sp-4);
+  }
+  .group-heading {
+    margin-bottom: var(--sp-2);
+  }
+  .products {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--sp-3);
+  }
+  .products a {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--sp-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-sm);
+    background: var(--paper);
+    color: var(--ink-900);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease);
+  }
+  .products a:hover {
+    border-color: var(--border-strong);
+    text-decoration: none;
+  }
+  .products .title {
+    font-size: var(--fs-sm);
+    font-weight: var(--w-medium);
+    line-height: 1.35;
+  }
+  .products .cta {
+    font-size: var(--fs-xs);
+    color: var(--text-link);
+    font-weight: var(--w-medium);
   }
   .disclosure {
-    font-size: 0.75rem;
-    color: var(--muted);
-    margin-bottom: 0;
+    margin: var(--sp-4) 0 0;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-family: var(--font-serif);
+    font-style: italic;
+    line-height: 1.5;
   }
 </style>
