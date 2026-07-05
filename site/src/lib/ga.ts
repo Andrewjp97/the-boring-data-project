@@ -8,9 +8,11 @@ export type PageKind = 'year' | 'model' | 'make' | 'campaign' | 'home' | 'utilit
 
 export interface PageDims {
   page_kind: PageKind;
-  make: string | null;
-  model: string | null;
-  model_year: number | null;
+  /** Absent (not null) when not applicable — gtag must never receive nulls;
+   *  GA4 reports the dimension as "(not set)" either way. */
+  make?: string;
+  model?: string;
+  model_year?: number;
   recall_count_bucket: string;
   complaint_count_bucket: string;
   indexable: 'true' | 'false';
@@ -41,15 +43,16 @@ export interface PageDimsInput {
 }
 
 export function buildPageDims(input: PageDimsInput): PageDims {
-  return {
+  const dims: PageDims = {
     page_kind: input.kind,
-    make: input.make ?? null,
-    model: input.model ?? null,
-    model_year: input.year ?? null,
     recall_count_bucket: recallCountBucket(input.recallCount ?? 0),
     complaint_count_bucket: complaintCountBucket(input.complaintTotal ?? 0),
     indexable: input.indexable === false ? 'false' : 'true',
   };
+  if (input.make != null) dims.make = input.make;
+  if (input.model != null) dims.model = input.model;
+  if (input.year != null) dims.model_year = input.year;
+  return dims;
 }
 
 /** Event names sent via delegated listeners — registered once in GA4 admin. */

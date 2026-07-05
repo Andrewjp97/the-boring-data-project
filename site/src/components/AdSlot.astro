@@ -1,29 +1,46 @@
 ---
 /**
  * Manual AdSense placement (SPEC §8). Renders only when PUBLIC_ADS_ENABLED
- * is 'true' AND a client ID is set; consent gating is handled by Consent
- * Mode (non-personalized until granted). Fixed-height reservation keeps
- * CLS at 0. Auto ads stay OFF.
+ * is 'true', a client ID is set, AND the placement has a real ad-unit slot
+ * id configured (PUBLIC_ADSENSE_SLOT_* — the numeric ids AdSense issues
+ * when the ad units are created in the console). An unconfigured placement
+ * renders nothing rather than an ad tag with an invalid slot id. Consent
+ * gating is handled by Consent Mode (non-personalized until granted).
+ * Fixed-height reservation keeps CLS at 0. Auto ads stay OFF.
  */
 interface Props {
-  slot: string; // AdSense ad-unit slot id
+  /** Placement key, resolved to a numeric AdSense slot id below. (Not named
+   *  `slot` — that's Astro's reserved named-slot attribute; using it would
+   *  silently assign the component to a nonexistent slot and drop it.) */
+  placement: keyof typeof SLOT_IDS;
   minHeight?: number;
 }
 
-const { slot, minHeight = 280 } = Astro.props;
+// import.meta.env only supports static references (Vite inlines them at
+// build time), so the placement -> slot-id map is spelled out here.
+const SLOT_IDS = {
+  'year-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_YEAR_1,
+  'year-page-2': import.meta.env.PUBLIC_ADSENSE_SLOT_YEAR_2,
+  'make-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_MAKE,
+  'model-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_MODEL,
+  'campaign-page-1': import.meta.env.PUBLIC_ADSENSE_SLOT_CAMPAIGN,
+} as const;
+
+const { placement, minHeight = 280 } = Astro.props;
 const enabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true';
 const client = import.meta.env.PUBLIC_ADSENSE_CLIENT;
+const slotId = SLOT_IDS[placement];
 ---
 
 {
-  enabled && client && (
+  enabled && client && slotId && (
     <div class="ad-slot" style={`min-height:${minHeight}px`} aria-label="Advertisement">
       <span class="ad-label">Advertisement</span>
       <ins
         class="adsbygoogle"
         style={`display:block;min-height:${minHeight - 20}px`}
         data-ad-client={client}
-        data-ad-slot={slot}
+        data-ad-slot={slotId}
         data-ad-format="auto"
         data-full-width-responsive="true"
       />

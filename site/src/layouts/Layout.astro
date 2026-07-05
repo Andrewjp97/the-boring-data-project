@@ -17,8 +17,11 @@ interface Props {
 const { title, description, canonicalPath, indexable = true, jsonLd = [], dims } = Astro.props;
 const siteUrl = (Astro.site?.toString() ?? 'https://recalllookup.example/').replace(/\/$/, '');
 const canonical = `${siteUrl}${canonicalPath}`;
-const adsEnabled =
-  import.meta.env.PUBLIC_ADS_ENABLED === 'true' && import.meta.env.PUBLIC_ADSENSE_CLIENT;
+// The account meta tag renders whenever a client is configured, independent
+// of PUBLIC_ADS_ENABLED — AdSense uses it for site verification during the
+// application review, before any ads are switched on.
+const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
+const adsEnabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true' && Boolean(adsenseClient);
 ---
 
 <!doctype html>
@@ -29,6 +32,7 @@ const adsEnabled =
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {adsenseClient && <meta name="google-adsense-account" content={adsenseClient} />}
     {!indexable && <meta name="robots" content="noindex,follow" />}
     {jsonLd.map((obj) => (
       <script type="application/ld+json" set:html={JSON.stringify(obj)} />
@@ -40,7 +44,7 @@ const adsEnabled =
         <script
           is:inline
           async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${import.meta.env.PUBLIC_ADSENSE_CLIENT}`}
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
           crossorigin="anonymous"
         />
       )

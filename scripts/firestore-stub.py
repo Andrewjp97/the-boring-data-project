@@ -44,9 +44,9 @@ def encode_value(v):
     raise TypeError(f"unsupported type {type(v)}")
 
 
-def load_docs() -> dict[tuple[str, str], dict]:
+def load_docs(pages_jsonl: Path = PAGES_JSONL) -> dict[tuple[str, str], dict]:
     docs: dict[tuple[str, str], dict] = {}
-    with PAGES_JSONL.open(encoding="utf-8") as f:
+    with pages_jsonl.open(encoding="utf-8") as f:
         for line in f:
             item = json.loads(line)
             docs[(item["collection"], item["id"])] = item["doc"]
@@ -83,8 +83,14 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument(
+        "--pages",
+        type=Path,
+        default=PAGES_JSONL,
+        help="pages.jsonl to serve (default: etl/build/pages/pages.jsonl)",
+    )
     args = parser.parse_args()
-    Handler.docs = load_docs()
+    Handler.docs = load_docs(args.pages)
     print(f"firestore-stub: {len(Handler.docs)} docs on http://localhost:{args.port}")
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 

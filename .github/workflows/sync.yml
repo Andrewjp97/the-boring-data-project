@@ -239,4 +239,4 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           # gtag asserted only once GA4 is configured (Phase 4)
-          PUBLIC_GA_ID: ${{ vars.PUBLIC_GA_ID }}
+          PUBLIC_GA_ID: ${{ vars.PUBLIC_GA_ID || 'G-ZM0SQZ4EHB' }}

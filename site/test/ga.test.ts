@@ -43,4 +43,17 @@ describe('GA4 buckets (registered as custom dimensions, SPEC §7.3)', () => {
   it('noindex pages report indexable=false for crawl-gap analysis', () => {
     expect(buildPageDims({ kind: 'year', indexable: false }).indexable).toBe('false');
   });
+
+  it('omits inapplicable entity dims instead of sending nulls to gtag', () => {
+    const dims = buildPageDims({ kind: 'home' });
+    expect(dims).toEqual({
+      page_kind: 'home',
+      recall_count_bucket: '0',
+      complaint_count_bucket: '0',
+      indexable: 'true',
+    });
+    expect('make' in dims).toBe(false);
+    expect('model' in dims).toBe(false);
+    expect('model_year' in dims).toBe(false);
+  });
 });

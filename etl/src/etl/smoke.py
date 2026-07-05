@@ -49,6 +49,10 @@ def check_url(client: httpx.Client, url: str) -> list[str]:
     if os.environ.get("PUBLIC_GA_ID"):
         if "googletagmanager.com/gtag" not in html and "gtag(" not in html:
             problems.append(f"{url}: gtag snippet missing")
+    # Sampled URLs come from the sitemap/manifest indexable set — a robots
+    # noindex here means the indexable flag and the template disagree.
+    if re.search(r'<meta name="robots" content="[^"]*noindex', html):
+        problems.append(f"{url}: sitemap URL carries robots noindex")
     ld_blocks = re.findall(
         r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL
     )
