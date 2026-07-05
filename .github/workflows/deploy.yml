@@ -4,8 +4,8 @@
 # Optional variables: PUBLIC_GA_ID, PUBLIC_GA_DEBUG, PUBLIC_ADS_ENABLED,
 #   PUBLIC_ADSENSE_CLIENT, PUBLIC_ADSENSE_SLOT_* (the numeric ad-unit ids
 #   from the AdSense console — placements without one render no ad),
-#   PUBLIC_AMAZON_TAG. GA id and AdSense client default to the real
-#   (public-by-design) values below; repo variables override them. Keep the
+#   PUBLIC_AMAZON_TAG. GA id, AdSense client, and Amazon tag default to the
+#   real (public-by-design) values below; repo variables override them. Keep the
 #   GA default in sync with smoke.yml/sync.yml so the post-deploy gtag
 #   assertion matches what the container was built with.
 name: deploy
@@ -95,13 +95,17 @@ jobs:
                 - --build-arg
                 - PUBLIC_ADSENSE_SLOT_YEAR_2=${{ vars.PUBLIC_ADSENSE_SLOT_YEAR_2 }}
                 - --build-arg
+                - PUBLIC_ADSENSE_SLOT_YEAR_MID=${{ vars.PUBLIC_ADSENSE_SLOT_YEAR_MID }}
+                - --build-arg
+                - PUBLIC_ADSENSE_SLOT_YEAR_RAIL=${{ vars.PUBLIC_ADSENSE_SLOT_YEAR_RAIL }}
+                - --build-arg
                 - PUBLIC_ADSENSE_SLOT_MAKE=${{ vars.PUBLIC_ADSENSE_SLOT_MAKE }}
                 - --build-arg
                 - PUBLIC_ADSENSE_SLOT_MODEL=${{ vars.PUBLIC_ADSENSE_SLOT_MODEL }}
                 - --build-arg
                 - PUBLIC_ADSENSE_SLOT_CAMPAIGN=${{ vars.PUBLIC_ADSENSE_SLOT_CAMPAIGN }}
                 - --build-arg
-                - PUBLIC_AMAZON_TAG=${{ vars.PUBLIC_AMAZON_TAG }}
+                - PUBLIC_AMAZON_TAG=${{ vars.PUBLIC_AMAZON_TAG || 'recallrepo-20' }}
                 - --build-arg
                 - SITE_URL=${{ vars.SITE_URL }}
                 - .
