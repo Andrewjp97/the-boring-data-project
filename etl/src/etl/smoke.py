@@ -9,6 +9,7 @@ empty state. Exits non-zero on any failure.
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
 import sys
@@ -43,8 +44,11 @@ def check_url(client: httpx.Client, url: str) -> list[str]:
     if resp.status_code != 200:
         return [f"{url}: HTTP {resp.status_code}"]
     html = resp.text
-    if "googletagmanager.com/gtag" not in html and "gtag(" not in html:
-        problems.append(f"{url}: gtag snippet missing")
+    # The gtag snippet only renders when GA4 is configured (Analytics.astro
+    # gates on PUBLIC_GA_ID) — a pre-Phase-4 deploy legitimately has none.
+    if os.environ.get("PUBLIC_GA_ID"):
+        if "googletagmanager.com/gtag" not in html and "gtag(" not in html:
+            problems.append(f"{url}: gtag snippet missing")
     ld_blocks = re.findall(
         r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL
     )

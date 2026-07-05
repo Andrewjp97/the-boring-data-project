@@ -20,6 +20,7 @@ import pytest
 
 from etl import config, diff, download, parse, sitemaps, verify
 from etl.push_firestore import push
+from etl.smoke import check_url
 
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
@@ -287,6 +288,29 @@ class TestSpotCheck:
         mock_api["handler"] = handler
         result = verify.run(spot_check=True)
         assert result["failures"] == []
+
+
+PAGE_WITHOUT_GTAG = """<html><head>
+<script type="application/ld+json">{"@type": "BreadcrumbList"}</script>
+</head><body><div class="recall-card">…</div></body></html>"""
+
+
+class TestSmokeGtagGating:
+    """gtag only renders once PUBLIC_GA_ID is configured (Phase 4); the smoke
+    check must not fail a pre-GA4 deploy over its absence."""
+
+    def _client(self) -> httpx.Client:
+        handler = lambda request: httpx.Response(200, text=PAGE_WITHOUT_GTAG)  # noqa: E731
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    def test_gtag_not_required_without_ga_id(self, monkeypatch):
+        monkeypatch.delenv("PUBLIC_GA_ID", raising=False)
+        assert check_url(self._client(), "https://x.example/p/") == []
+
+    def test_gtag_required_with_ga_id(self, monkeypatch):
+        monkeypatch.setenv("PUBLIC_GA_ID", "G-TEST123")
+        problems = check_url(self._client(), "https://x.example/p/")
+        assert problems == ["https://x.example/p/: gtag snippet missing"]
 
 
 class TestSitemapValidity:

@@ -31,6 +31,8 @@ jobs:
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           COUNT: ${{ inputs.count || '20' }}
+          # gtag asserted only once GA4 is configured (Phase 4)
+          PUBLIC_GA_ID: ${{ vars.PUBLIC_GA_ID }}
         run: |
           uv sync --frozen
           uv run python - <<'EOF'
