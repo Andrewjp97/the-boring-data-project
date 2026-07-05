@@ -65,15 +65,19 @@ def wait_http(url: str, timeout: float = 30.0) -> None:
     raise RuntimeError(f"server at {url} did not come up")
 
 
-def fetch(base: str, path: str) -> tuple[int, dict[str, str], str]:
+def fetch(base: str, path: str) -> tuple[int, dict[str, str], str, float]:
+    """Returns (status, lowercase headers, body, elapsed seconds)."""
     req = urllib.request.Request(base + path)
+    start = time.monotonic()
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode("utf-8")
             headers = {k.lower(): v for k, v in resp.headers.items()}
-            return resp.status, headers, resp.read().decode("utf-8")
+            return resp.status, headers, body, time.monotonic() - start
     except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
         headers = {k.lower(): v for k, v in e.headers.items()}
-        return e.code, headers, e.read().decode("utf-8", errors="replace")
+        return e.code, headers, body, time.monotonic() - start
 
 
 def pick_sample_slugs() -> dict[str, str]:
@@ -179,8 +183,8 @@ def main() -> int:
             print("note: site built without PUBLIC_GA_ID — gtag checks relaxed")
 
         for kind, path, is_ssr_entity in pages:
-            status, headers, html = fetch(base, path)
-            print(f"\n{kind}  {path}")
+            status, headers, html, elapsed = fetch(base, path)
+            print(f"\n{kind}  {path}  ({elapsed * 1000:.0f} ms)")
             check(status == 200, f"{kind}: HTTP 200 (got {status})")
             check(len(html) > 2000, f"{kind}: non-trivial HTML ({len(html)} bytes)")
             check("<h1" in html, f"{kind}: has <h1>")
@@ -190,6 +194,12 @@ def main() -> int:
                 check(
                     "s-maxage=604800" in cc,
                     f"{kind}: Cache-Control s-maxage=604800 (got {cc!r})",
+                )
+                # SPEC Phase 2: year page < 500 ms cold. Local render omits
+                # real Firestore RTT, so hold every SSR page to the budget.
+                check(
+                    elapsed < 0.5,
+                    f"{kind}: SSR render < 500 ms (took {elapsed * 1000:.0f} ms)",
                 )
 
             try:
@@ -217,7 +227,7 @@ def main() -> int:
                 check(counts["vin"] == 0, f"{kind}: no VIN decoder script")
 
         # 404 path: unknown vehicle → 404 status, no-store, recovery UI
-        status, headers, html = fetch(base, "/recalls/nonexistent-make/xyz/1900/")
+        status, headers, html, _ = fetch(base, "/recalls/nonexistent-make/xyz/1900/")
         print("\n404  /recalls/nonexistent-make/xyz/1900/")
         check(status == 404, f"404: HTTP 404 (got {status})")
         check("no-store" in headers.get("cache-control", ""), "404: Cache-Control no-store")
