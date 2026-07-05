@@ -12,7 +12,11 @@ import datetime
 import json
 from typing import Any
 
-from etl import config
+from etl import config, download
+
+# BulkWriter's default linear-backoff retry budget; a doc that still fails
+# after this many attempts is a terminal failure and must fail the run.
+MAX_WRITE_ATTEMPTS = 15
 
 
 def _load_changed() -> list[dict]:
@@ -30,6 +34,9 @@ def push(client: Any | None = None, dry_run: bool = False) -> dict:
     deleted = _load_deleted()
 
     if dry_run:
+        # --local/--dry-run still advances the no-op baseline so consecutive
+        # local runs behave like consecutive CI weeks.
+        download.commit_state_checksums()
         summary = {"upserts": len(changed), "deletes": len(deleted), "dryRun": True}
         print(json.dumps({"step": "push-firestore", **summary}, indent=2))
         return summary
@@ -41,7 +48,21 @@ def push(client: Any | None = None, dry_run: bool = False) -> dict:
 
     from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
+    # BulkWriter's default handler retries then silently logs terminal
+    # failures; a partially-pushed week must fail the run instead, so the
+    # failure issue opens and next week re-processes from scratch.
+    terminal_failures: list[str] = []
+
+    def _on_write_error(error: Any, writer: Any) -> bool:
+        if error.attempts < MAX_WRITE_ATTEMPTS:
+            return True
+        ref = getattr(error.operation, "reference", None)
+        path = getattr(ref, "path", None) or getattr(ref, "_document_path", "<unknown>")
+        terminal_failures.append(f"{path}: {error.message} (code {error.code})")
+        return False
+
     writer = client.bulk_writer()
+    writer.on_write_error(_on_write_error)
     for item in changed:
         doc = dict(item["doc"])
         doc["updatedAt"] = SERVER_TIMESTAMP
@@ -50,6 +71,12 @@ def push(client: Any | None = None, dry_run: bool = False) -> dict:
     for item in deleted:
         writer.delete(client.collection(item["collection"]).document(item["id"]))
     writer.close()  # flushes; BulkWriter batches ~500 and retries with backoff
+    if terminal_failures:
+        preview = "; ".join(terminal_failures[:5])
+        raise RuntimeError(
+            f"push-firestore: {len(terminal_failures)} writes failed after "
+            f"{MAX_WRITE_ATTEMPTS} attempts: {preview}"
+        )
 
     # meta/sync: single doc read by ops/debugging, not by page renders.
     checksums_path = config.RAW_DIR / "checksums.json"
@@ -68,6 +95,9 @@ def push(client: Any | None = None, dry_run: bool = False) -> dict:
         "deletes": len(deleted),
     }
     client.collection(config.FIRESTORE_META_COLLECTION).document("sync").set(meta)
+
+    # Docs are durably pushed: this week's downloads become the no-op baseline.
+    download.commit_state_checksums()
 
     summary = {"upserts": len(changed), "deletes": len(deleted), "dryRun": False}
     print(json.dumps({"step": "push-firestore", **summary}, indent=2))
