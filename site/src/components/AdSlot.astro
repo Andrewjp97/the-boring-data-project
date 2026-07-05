@@ -6,11 +6,14 @@
  * CLS at 0. Auto ads stay OFF.
  */
 interface Props {
-  slot: string; // AdSense ad-unit slot id
+  /** AdSense ad-unit slot id. Named `slotId` because `slot` is Astro's
+   *  reserved named-slot attribute — using it would silently assign the
+   *  whole component to a nonexistent slot and drop it from the output. */
+  slotId: string;
   minHeight?: number;
 }
 
-const { slot, minHeight = 280 } = Astro.props;
+const { slotId, minHeight = 280 } = Astro.props;
 const enabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true';
 const client = import.meta.env.PUBLIC_ADSENSE_CLIENT;
 ---
@@ -23,7 +26,7 @@ const client = import.meta.env.PUBLIC_ADSENSE_CLIENT;
         class="adsbygoogle"
         style={`display:block;min-height:${minHeight - 20}px`}
         data-ad-client={client}
-        data-ad-slot={slot}
+        data-ad-slot={slotId}
         data-ad-format="auto"
         data-full-width-responsive="true"
       />

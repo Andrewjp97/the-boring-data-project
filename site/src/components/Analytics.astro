@@ -13,12 +13,17 @@ interface Props {
 
 const { dims } = Astro.props;
 const gaId = import.meta.env.PUBLIC_GA_ID;
+// Build-time flag for the Phase 4 DebugView acceptance run: forwards every
+// hit to GA4 DebugView so the custom dims can be eyeballed per page kind.
+// Never set in production builds.
+const config =
+  import.meta.env.PUBLIC_GA_DEBUG === 'true' ? { ...dims, debug_mode: true } : dims;
 ---
 
 {
   gaId && (
     <>
-      <script is:inline define:vars={{ gaId, dims }}>
+      <script is:inline define:vars={{ gaId, config }}>
         window.dataLayer = window.dataLayer || [];
         function gtag() {
           dataLayer.push(arguments);
@@ -31,8 +36,9 @@ const gaId = import.meta.env.PUBLIC_GA_ID;
           analytics_storage: 'denied',
           wait_for_update: 500,
         });
+        gtag('set', 'ads_data_redaction', true);
         gtag('js', new Date());
-        gtag('config', gaId, dims);
+        gtag('config', gaId, config);
 
         document.addEventListener('click', function (e) {
           var a = e.target && e.target.closest ? e.target.closest('a[data-evt]') : null;

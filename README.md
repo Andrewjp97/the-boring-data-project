@@ -67,6 +67,11 @@ pnpm --filter site test:rules
 # Phase 2 acceptance harness — all five page kinds end-to-end against the
 # real page docs (needs `etl all --local` output + a site build):
 python3 scripts/verify-site.py
+
+# Phase 4 acceptance harness — analytics dims, consent mode, rich results,
+# noindex, ad/affiliate flag matrix, CLS. Builds the site itself (twice) and
+# runs against real page docs if present, else the checked-in fixtures:
+python3 scripts/verify-phase4.py
 ```
 
 ## Phase 2 verification (SPEC §11) — verified July 2026
@@ -130,6 +135,50 @@ Remaining production-only checks (need the live GCP project + domain, SPEC §11)
 submit `sitemap-index.xml` in GSC and confirm it validates; watch the first two scheduled
 Monday runs complete unattended; optionally run the `corrupt-file` drill once in the real
 repo to see the issue arrive.
+
+## Phase 4 verification (SPEC §11) — analytics + SEO + ads polish, verified July 2026
+
+Everything checkable without the live GA4/AdSense consoles is automated in
+`scripts/verify-phase4.py` (builds the site twice — flags off and on — and serves page docs
+through the Firestore stub; uses `scripts/fixtures/phase4-pages.jsonl` when no real ETL
+build is present). Verified locally, all checks green:
+
+- **Custom dims on every page kind**: the gtag config on home/make/model/year/campaign/vin
+  carries `page_kind`, `make`, `model`, `model_year`, `recall_count_bucket`,
+  `complaint_count_bucket`, `indexable` (entity dims are *omitted*, never sent as null,
+  where inapplicable). `PUBLIC_GA_DEBUG=true` builds add `debug_mode` to every hit so the
+  one-time GA4 DebugView run is just: deploy a debug build, click through the five page
+  kinds, watch the dims arrive.
+- **Consent-denied path**: Consent Mode v2 default `denied` for all four signals (with
+  `wait_for_update`) is queued *before* the config call on every page, and
+  `ads_data_redaction` is set. The Funding Choices CMP loads only when
+  `PUBLIC_ADSENSE_CLIENT` is set.
+- **Rich results**: BreadcrumbList + FAQPage JSON-LD on 5 sampled year pages satisfies
+  Google's structural requirements (typed ListItems with contiguous positions and absolute
+  URLs; ≥2 complete Question/Answer pairs).
+- **noindex**: a zero-data year page renders HTTP 200 with `noindex,follow`, stays
+  self-canonical, and reports `indexable:'false'` in its dims; indexable pages carry no
+  robots meta; the live smoke check now also fails if any sitemap-sampled URL ever carries
+  noindex.
+- **Ads/affiliate flag matrix**: flags-off builds contain zero AdSense/CMP/affiliate bytes.
+  Flags-on builds render both year-page slots (fixed-height reservation, labeled, never
+  above the answer box), one slot on hub/campaign pages, the AdSense loader with the client
+  id, and the AffiliateBlock with `rel="sponsored"`, the `affiliate_click` event, and the
+  FTC disclosure.
+- **CLS = 0** measured in headless Chromium (mobile viewport, all external requests blocked
+  so ad slots never fill — the worst case for reserved space) on the ads-enabled year page
+  and home page.
+- **Found & fixed**: `<AdSlot slot="…">` never rendered — `slot` is Astro's reserved
+  named-slot attribute, so every ad unit was silently assigned to a nonexistent layout slot
+  and dropped. The prop is now `slotId`; the harness pins the rendered output so it can't
+  regress.
+
+Remaining console-only steps (SPEC §12, after the site is live): create the GA4 property and
+register the seven custom dimensions, run the DebugView pass with a `PUBLIC_GA_DEBUG=true`
+build, enable the BigQuery daily export and confirm the first `events_*` table lands
+(`analytics/queries/*.sql` are ready against it), run Google's Rich Results Test on 5
+production URLs, apply to AdSense once indexed, then set `PUBLIC_ADSENSE_CLIENT` /
+`PUBLIC_ADS_ENABLED` and the real `ads.txt` line.
 
 ## Data notes (verified July 2026)
 
