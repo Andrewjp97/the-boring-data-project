@@ -21,7 +21,7 @@ const canonical = `${siteUrl}${canonicalPath}`;
 // of PUBLIC_ADS_ENABLED — AdSense uses it for site verification during the
 // application review, before any ads are switched on.
 const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
-const adsEnabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true' && adsenseClient;
+const adsEnabled = import.meta.env.PUBLIC_ADS_ENABLED === 'true' && Boolean(adsenseClient);
 ---
 
 <!doctype html>

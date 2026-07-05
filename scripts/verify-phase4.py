@@ -3,9 +3,10 @@
 
 Everything that can be verified without the live GA4/AdSense consoles:
 
-  - every page kind sends the full set of GA4 custom dimensions on its
-    page_view config (page_kind, make, model, model_year, recall_count_bucket,
-    complaint_count_bucket, indexable) — and never sends nulls
+  - every page kind sends its applicable GA4 custom dimensions on the
+    page_view config (page_kind, recall_count_bucket, complaint_count_bucket,
+    indexable always; make/model/model_year where the entity has them,
+    omitted — never null — elsewhere)
   - Consent Mode v2: default 'denied' for all four signals is queued *before*
     the gtag config call on every page; ads_data_redaction is set
   - PUBLIC_GA_DEBUG=true builds carry debug_mode on the config (for the
