@@ -89,6 +89,11 @@ jobs:
                 - SITE_URL=${{ vars.SITE_URL }}
                 - .
           images: ["$IMAGE"]
+          # Service accounts can't stream from the default logs bucket unless
+          # they're project Viewer; without this, gcloud exits 1 while the
+          # build is still running (logs stay in Cloud Logging).
+          options:
+            logging: CLOUD_LOGGING_ONLY
           EOF
           gcloud builds submit . \
             --project "${{ vars.GCP_PROJECT_ID }}" \
