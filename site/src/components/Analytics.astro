@@ -1,9 +1,12 @@
 ---
 /**
  * GA4 via gtag with Consent Mode v2 (SPEC §7). Consent defaults to denied
- * for everything; the CMP (Funding Choices, see ConsentBanner) updates it.
- * Custom dimensions ride on every page_view. One delegated listener powers
- * all events — no per-component JS.
+ * in the regions whose law requires prior consent (EEA/UK/CH — the regions
+ * Funding Choices shows a GDPR message in) and granted elsewhere: Funding
+ * Choices never prompts outside those regions, so a global denied default
+ * would silently reduce all US traffic to cookieless pings. Custom
+ * dimensions ride on every page_view. One delegated listener powers all
+ * events — no per-component JS.
  */
 import type { PageDims } from '../lib/ga';
 
@@ -29,12 +32,21 @@ const config =
           dataLayer.push(arguments);
         }
         window.gtag = gtag;
+        // Region-scoped default takes precedence over the general one below
+        // regardless of order (Consent Mode v2 semantics). EEA + UK + CH.
         gtag('consent', 'default', {
           ad_storage: 'denied',
           ad_user_data: 'denied',
           ad_personalization: 'denied',
           analytics_storage: 'denied',
           wait_for_update: 500,
+          region: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH'],
+        });
+        gtag('consent', 'default', {
+          ad_storage: 'granted',
+          ad_user_data: 'granted',
+          ad_personalization: 'granted',
+          analytics_storage: 'granted',
         });
         gtag('set', 'ads_data_redaction', true);
         gtag('js', new Date());
