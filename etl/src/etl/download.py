@@ -4,6 +4,11 @@ Writes everything under work/raw/. Emits raw/checksums.json and compares it
 with build/state/checksums.json (the previous run, restored from actions/cache
 in CI). If nothing changed, `changed` is False and the pipeline can exit as a
 no-op before doing any real work.
+
+The state copy is only advanced by commit_state_checksums(), which
+push_firestore.push() calls after the docs have shipped — a week counts as
+"seen" only once it fully processed and pushed, so a failed run is re-processed
+from scratch the following week instead of being skipped as a no-op.
 """
 
 from __future__ import annotations
@@ -44,6 +49,14 @@ def _write_github_output(changed: bool) -> None:
     if gh_out:
         with open(gh_out, "a", encoding="utf-8") as f:
             f.write(f"changed={'true' if changed else 'false'}\n")
+
+
+def commit_state_checksums() -> None:
+    """Promote this run's raw checksums to the no-op baseline for next week."""
+    src = config.RAW_DIR / "checksums.json"
+    if src.exists():
+        config.STATE_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src, config.STATE_DIR / "checksums.json")
 
 
 def run(force: bool = False, retries: int = 3) -> dict:

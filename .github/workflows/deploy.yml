@@ -67,9 +67,8 @@ jobs:
       - name: Build + push container (Artifact Registry)
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/site/${SERVICE}:${{ github.sha }}"
-          gcloud builds submit . \
-            --project "${{ vars.GCP_PROJECT_ID }}" \
-            --config - <<EOF
+          # gcloud builds submit does not read --config from stdin; use a file.
+          cat > "$RUNNER_TEMP/cloudbuild.yaml" <<EOF
           steps:
             - name: gcr.io/cloud-builders/docker
               args:
@@ -91,6 +90,9 @@ jobs:
                 - .
           images: ["$IMAGE"]
           EOF
+          gcloud builds submit . \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --config "$RUNNER_TEMP/cloudbuild.yaml"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
       - name: Deploy Cloud Run

@@ -7,6 +7,10 @@
 #   GCP_WIF_PROVIDER      projects/N/locations/global/workloadIdentityPools/gh/providers/gh
 #   GCP_ETL_SA            etl-sync@PROJECT.iam.gserviceaccount.com
 #   SITE_URL              https://your-domain.example
+#
+# Failure-path drill (Phase 3 acceptance): dispatch with drill=corrupt-file to
+# prove a corrupt download fails the run before any Firestore write and opens
+# the auto-issue. Prod data and the CDN are never touched by a failed run.
 name: sync
 
 on:
@@ -18,6 +22,14 @@ on:
         description: 'Run even if downloads are unchanged'
         type: boolean
         default: false
+      # Phase 3 acceptance drill (SPEC §11): corrupts a downloaded flat file so
+      # the run fails before any Firestore write — proves the failure issue
+      # opens and prod keeps serving old data. Never touches prod.
+      drill:
+        description: 'Failure drill'
+        type: choice
+        options: [none, corrupt-file]
+        default: none
 
 permissions:
   contents: read
@@ -59,7 +71,13 @@ jobs:
 
       - name: Download flat files (checksums decide no-op)
         id: download
-        run: uv run etl download ${{ inputs.force && '--force' || '' }}
+        run: uv run etl download ${{ (inputs.force || inputs.drill == 'corrupt-file') && '--force' || '' }}
+
+      - name: 'DRILL: corrupt the recalls flat file'
+        if: inputs.drill == 'corrupt-file'
+        run: |
+          truncate -s 4K work/raw/FLAT_RCL_POST_2010.zip
+          echo "::warning::corrupt-file drill active — this run is EXPECTED to fail before the Firestore push"
 
       - name: Refresh vPIC make canon (monthly, first week)
         if: steps.download.outputs.changed == 'true'
@@ -127,8 +145,12 @@ jobs:
       # Google retired the sitemap ping endpoint (June 2023). Freshness is
       # signaled via <lastmod> + GSC; nothing to ping.
 
+      # Saved on no-op weeks too: GitHub evicts caches untouched for 7 days,
+      # which is exactly the sync cadence — re-saving keeps the freshest state
+      # entry alive so a quiet month doesn't degrade into weekly full rebuilds.
+      # Never saved on failure (implicit success()), so a failed week is
+      # re-processed from scratch and old data keeps serving.
       - name: Save build state
-        if: steps.download.outputs.changed == 'true'
         uses: actions/cache/save@v4
         with:
           path: etl/build/state
@@ -162,11 +184,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `Weekly sync failed — run ${context.runId}`;
+            const drill = ${{ toJSON(inputs.drill || 'none') }} !== 'none';
+            const label = drill ? 'sync-drill' : 'sync-failure';
+            const title = drill
+              ? `[DRILL] sync failure test — run ${context.runId}`
+              : `Weekly sync failed — run ${context.runId}`;
             const open = await github.rest.issues.listForRepo({
-              ...context.repo, state: 'open', labels: 'sync-failure',
+              ...context.repo, state: 'open', labels: label,
             });
             const body = [
+              ...(drill ? [
+                '**This is a manual failure drill** (`drill: corrupt-file`) — the run was corrupted on purpose.',
+                'Confirm this issue arrived, then close it. Production data was never touched.',
+                '',
+              ] : []),
               'The scheduled data sync failed before pushing to Firestore, so production data is untouched.',
               '',
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
@@ -179,7 +210,7 @@ jobs:
               });
             } else {
               await github.rest.issues.create({
-                ...context.repo, title, body, labels: ['sync-failure'],
+                ...context.repo, title, body, labels: [label],
               });
             }
 

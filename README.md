@@ -91,6 +91,34 @@ Deploy-time checks that need the live GCP project (do once at bring-up): second 
 To load a real Firestore once (Phase 2 bring-up): `gcloud auth application-default login`,
 then `cd etl && uv run etl diff --full && GOOGLE_CLOUD_PROJECT=<project> uv run etl push-firestore`.
 
+## Phase 3 verification (SPEC §11) — automation
+
+The weekly pipeline's failure modes are rehearsed locally and covered by
+`etl/tests/test_automation.py`; run `uv run pytest tests/test_automation.py -q`.
+
+- **No-change week no-ops at step 2**: `etl download` compares this week's checksums against
+  `build/state/checksums.json`. That baseline is advanced *only* by a completed push
+  (`push_firestore` calls `download.commit_state_checksums()`), so a failed week is
+  re-processed from scratch instead of being skipped.
+- **Corrupt-file failure leaves prod untouched**: a truncated zip fails at parse, integrity
+  drift fails at verify — both before any Firestore write, with `build/state/` byte-identical
+  after the failure (tests + local rehearsal). To rehearse the *full* alert path in CI, dispatch
+  `sync.yml` with `drill: corrupt-file`: the run corrupts its own download, fails before the
+  push, and auto-opens a `sync-drill`-labeled issue. Prod data and the CDN are never touched.
+- **Partial pushes cannot pass silently**: BulkWriter's default swallows terminal per-document
+  write errors; `push_firestore` now records them and fails the run (which opens the issue and
+  keeps the no-op baseline un-advanced).
+- **State survives quiet weeks**: `sync.yml` re-saves the `actions/cache` state entry on no-op
+  weeks too — GitHub evicts caches untouched for 7 days, which is exactly the sync cadence.
+- **Sitemaps conform to the protocol**: shards and index are schema-checked in tests
+  (namespace, `<loc>`/`<lastmod>` shapes, shard size ≤ 45k, index ↔ shard integrity,
+  exactly the indexable URL set).
+
+Remaining production-only checks (need the live GCP project + domain, SPEC §11):
+submit `sitemap-index.xml` in GSC and confirm it validates; watch the first two scheduled
+Monday runs complete unattended; optionally run the `corrupt-file` drill once in the real
+repo to see the issue arrive.
+
 ## Data notes (verified July 2026)
 
 - NHTSA split the recalls flat file: `FLAT_RCL_PRE_2010.zip` + `FLAT_RCL_POST_2010.zip`
