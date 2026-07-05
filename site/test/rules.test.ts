@@ -66,7 +66,9 @@ describe.skipIf(!emulatorHost)('firestore.rules — deny-all client access', () 
     const db = env.authenticatedContext('some-user').firestore();
     await assertFails(getDoc(doc(db, 'pages/recalls__honda__cr-v__2016')));
     for (const coll of collections) {
+      await assertFails(getDoc(doc(db, `${coll}/any-doc`)));
       await assertFails(setDoc(doc(db, `${coll}/any-doc`), { evil: true }));
+      await assertFails(deleteDoc(doc(db, `${coll}/any-doc`)));
     }
   });
 });

@@ -21,6 +21,7 @@ Run:
 from __future__ import annotations
 
 import json
+import os
 import re
 import socket
 import subprocess
@@ -34,7 +35,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PAGES_JSONL = REPO_ROOT / "etl" / "build" / "pages" / "pages.jsonl"
 SERVER_ENTRY = REPO_ROOT / "site" / "dist" / "server" / "entry.mjs"
 
-SCRIPT_RE = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
 SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
 
 failures: list[str] = []
@@ -150,7 +150,7 @@ def main() -> int:
     site = subprocess.Popen(
         ["node", str(SERVER_ENTRY)],
         env={
-            "PATH": "/usr/bin:/bin:/usr/local/bin",
+            **os.environ,
             "HOST": "127.0.0.1",
             "PORT": str(site_port),
             "GCP_PROJECT": "local",
@@ -223,10 +223,13 @@ def main() -> int:
         check("no-store" in headers.get("cache-control", ""), "404: Cache-Control no-store")
         check("vehicle-search" in html, "404: search recovery UI present")
     finally:
-        stub.terminate()
-        site.terminate()
-        stub.wait(timeout=10)
-        site.wait(timeout=10)
+        for proc in (stub, site):
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
     print(f"\n{'PASS' if not failures else 'FAIL'}: {len(failures)} failure(s)")
     for f in failures:
