@@ -60,7 +60,33 @@ pnpm --filter site build
 
 # Site against real data without GCP: serve page docs through the Firestore
 # emulator, or set FIRESTORE_ACCESS_TOKEN + GCP_PROJECT for a real project.
+
+# Firestore security rules (deny-all client access), via the real emulator:
+pnpm --filter site test:rules
+
+# Phase 2 acceptance harness — all five page kinds end-to-end against the
+# real page docs (needs `etl all --local` output + a site build):
+python3 scripts/verify-site.py
 ```
+
+## Phase 2 verification (SPEC §11) — verified July 2026
+
+Run locally against a full real-data ETL build (123,884 page docs from live NHTSA files):
+
+- **All five page kinds render** (home, make hub, model hub, year, campaign — plus `/vin/`
+  and 404 recovery): `scripts/verify-site.py` passes — HTTP 200, `s-maxage=604800` on SSR
+  pages, JSON-LD parses (BreadcrumbList everywhere, FAQPage on year pages), gtag present,
+  zero client JS on entity pages beyond gtag/consent, 404s are `no-store`.
+- **Lighthouse on the year template**: performance 100 / SEO 100 (gate: ≥95 / 100),
+  accessibility 96, best-practices 96, CLS 0.
+- **SSR latency**: 10–32 ms per render locally (gate: <500 ms cold; production adds
+  Firestore RTT ≈ 10–30 ms in-region).
+- **Firestore rules deny all client access**: `site/test/rules.test.ts` proves reads,
+  writes, and deletes fail for unauthenticated *and* authenticated clients on `pages`,
+  `campaignPages`, and `meta`, against the real Firestore emulator.
+
+Deploy-time checks that need the live GCP project (do once at bring-up): second request to
+`/recalls/honda/cr-v/2016/` returns `x-cache: HIT` from Hosting with <50 ms edge latency.
 
 To load a real Firestore once (Phase 2 bring-up): `gcloud auth application-default login`,
 then `cd etl && uv run etl diff --full && GOOGLE_CLOUD_PROJECT=<project> uv run etl push-firestore`.
