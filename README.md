@@ -91,10 +91,22 @@ Deploy-time checks that need the live GCP project (do once at bring-up): second 
 To load a real Firestore once (Phase 2 bring-up): `gcloud auth application-default login`,
 then `cd etl && uv run etl diff --full && GOOGLE_CLOUD_PROJECT=<project> uv run etl push-firestore`.
 
-## Phase 3 verification (SPEC §11) — automation
+## Phase 3 verification (SPEC §11) — automation, verified July 2026
 
-The weekly pipeline's failure modes are rehearsed locally and covered by
-`etl/tests/test_automation.py`; run `uv run pytest tests/test_automation.py -q`.
+The weekly pipeline's failure modes are covered by `etl/tests/test_automation.py`
+(`uv run pytest tests/test_automation.py -q`) and were rehearsed end-to-end on live NHTSA
+data as three consecutive "weeks" of `sync.yml` semantics:
+
+1. **Week 1** — full pipeline (`etl all --local --force`): 24,376 campaigns, 123,884 page
+   docs, quarantine 1.30%, every integrity assertion green, 123,884 upserts diffed,
+   109,859 indexable URLs across 3 sitemap shards + index.
+2. **Week 2** — same command, unchanged upstream files: exits `no-op week` at the download
+   step. Zero parse/build/push work.
+3. **Corrupt week** — recalls zip truncated after download (what the CI drill does):
+   `etl parse` fails with `BadZipFile`, exit 1, and `build/state/` is byte-identical
+   afterwards (sha256-verified) — old data keeps serving. Restoring the good file and
+   re-running `etl download` correctly reports `changed: false` against the last *pushed*
+   baseline: a failed week is never mistaken for a completed one.
 
 - **No-change week no-ops at step 2**: `etl download` compares this week's checksums against
   `build/state/checksums.json`. That baseline is advanced *only* by a completed push
