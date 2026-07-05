@@ -13,7 +13,9 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 from types import SimpleNamespace
+from urllib.parse import parse_qs
 
+import httpx
 import pytest
 
 from etl import config, diff, download, parse, sitemaps, verify
@@ -208,6 +210,83 @@ class TestPushFailureSurfacing:
         # A partially-failed week never becomes the no-op baseline.
         assert "meta/sync" not in client.store
         assert not (config.STATE_DIR / "checksums.json").exists()
+
+
+def spot_check_transport(missing: set[str], components: dict[str, str] | None = None):
+    """MockTransport for the campaignNumber endpoint: campno -> canned results."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        campno = parse_qs(request.url.query.decode())["campaignNumber"][0]
+        if campno in missing:
+            return httpx.Response(200, json={"Count": 0, "results": []})
+        component = (components or {}).get(campno, "FUEL SYSTEM, GASOLINE")
+        return httpx.Response(
+            200,
+            json={
+                "Count": 1,
+                "results": [
+                    {"NHTSACampaignNumber": campno, "Component": component}
+                ],
+            },
+        )
+
+    return handler
+
+
+@pytest.fixture()
+def mock_api(monkeypatch):
+    """Route verify's httpx.Client through a MockTransport set by the test."""
+    state: dict = {"handler": None}
+
+    real_client = httpx.Client
+
+    def client_factory(**kwargs):
+        return real_client(transport=httpx.MockTransport(state["handler"]))
+
+    monkeypatch.setattr(verify.httpx, "Client", client_factory)
+    return state
+
+
+class TestSpotCheck:
+    """The live-API gate catches systemic breakage, not per-campaign quirks:
+    naming drift and multi-component campaigns must not fail the week."""
+
+    def test_all_present_passes(self, built_pages, mock_api):
+        mock_api["handler"] = spot_check_transport(missing=set())
+        result = verify.run(spot_check=True)
+        assert result["failures"] == []
+
+    def test_single_missing_campaign_is_advisory(self, built_pages, mock_api):
+        mock_api["handler"] = spot_check_transport(missing={"23V123000"})
+        result = verify.run(spot_check=True)  # 1 of 3 missing: below majority
+        assert result["failures"] == []
+
+    def test_component_mismatch_is_advisory(self, built_pages, mock_api):
+        mock_api["handler"] = spot_check_transport(
+            missing=set(),
+            components={
+                "23V123000": "STRUCTURE:BODY:DOOR",
+                "24V456000": "STRUCTURE:BODY:DOOR",
+                "22V789000": "STRUCTURE:BODY:DOOR",
+            },
+        )
+        result = verify.run(spot_check=True)
+        assert result["failures"] == []
+
+    def test_majority_missing_fails(self, built_pages, mock_api):
+        mock_api["handler"] = spot_check_transport(
+            missing={"23V123000", "24V456000", "22V789000"}
+        )
+        with pytest.raises(verify.IntegrityError, match="not in NHTSA API"):
+            verify.run(spot_check=True)
+
+    def test_api_unreachable_is_nonfatal(self, built_pages, mock_api):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("down", request=request)
+
+        mock_api["handler"] = handler
+        result = verify.run(spot_check=True)
+        assert result["failures"] == []
 
 
 class TestSitemapValidity:

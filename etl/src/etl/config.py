@@ -77,7 +77,10 @@ DATASETS: dict[str, Dataset] = {
 }
 
 VPIC_ALL_MAKES_URL = "https://vpic.nhtsa.dot.gov/api/vehicles/GetAllMakes?format=json"
-RECALLS_BY_VEHICLE_URL = "https://api.nhtsa.gov/recalls/recallsByVehicle"
+# Spot-check by campaign number, NOT recallsByVehicle: the API's vehicle index
+# uses different make/model spellings than the flat files (e.g. 'INTERNATIONAL
+# MOTORS' vs 'INTERNATIONAL'), which yields false "missing campaign" hits.
+RECALLS_BY_CAMPAIGN_URL = "https://api.nhtsa.gov/recalls/campaignNumber"
 
 # --- Page-build tunables -------------------------------------------------
 
