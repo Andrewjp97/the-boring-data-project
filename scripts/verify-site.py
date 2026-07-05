@@ -69,9 +69,11 @@ def fetch(base: str, path: str) -> tuple[int, dict[str, str], str]:
     req = urllib.request.Request(base + path)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.status, dict(resp.headers), resp.read().decode("utf-8")
+            headers = {k.lower(): v for k, v in resp.headers.items()}
+            return resp.status, headers, resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
-        return e.code, dict(e.headers), e.read().decode("utf-8", errors="replace")
+        headers = {k.lower(): v for k, v in e.headers.items()}
+        return e.code, headers, e.read().decode("utf-8", errors="replace")
 
 
 def pick_sample_slugs() -> dict[str, str]:
@@ -140,8 +142,9 @@ def main() -> int:
     print(f"sample slugs: {json.dumps(slugs, indent=2)}")
 
     stub_port, site_port = free_port(), free_port()
+    stub_script = REPO_ROOT / "scripts" / "firestore-stub.py"
     stub = subprocess.Popen(
-        [sys.executable, str(REPO_ROOT / "scripts" / "firestore-stub.py"), "--port", str(stub_port)],
+        [sys.executable, str(stub_script), "--port", str(stub_port)],
         stdout=subprocess.DEVNULL,
     )
     site = subprocess.Popen(
@@ -183,7 +186,7 @@ def main() -> int:
             check("<h1" in html, f"{kind}: has <h1>")
 
             if is_ssr_entity:
-                cc = headers.get("Cache-Control", "")
+                cc = headers.get("cache-control", "")
                 check(
                     "s-maxage=604800" in cc,
                     f"{kind}: Cache-Control s-maxage=604800 (got {cc!r})",
@@ -217,7 +220,7 @@ def main() -> int:
         status, headers, html = fetch(base, "/recalls/nonexistent-make/xyz/1900/")
         print("\n404  /recalls/nonexistent-make/xyz/1900/")
         check(status == 404, f"404: HTTP 404 (got {status})")
-        check("no-store" in headers.get("Cache-Control", ""), "404: Cache-Control no-store")
+        check("no-store" in headers.get("cache-control", ""), "404: Cache-Control no-store")
         check("vehicle-search" in html, "404: search recovery UI present")
     finally:
         stub.terminate()
