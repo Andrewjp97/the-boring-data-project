@@ -128,10 +128,46 @@ jobs:
             --set-env-vars "GCP_PROJECT=${{ vars.GCP_PROJECT_ID }},SITE_URL=${{ vars.SITE_URL }}" \
             --allow-unauthenticated
 
+      # A Hosting release is a FULL snapshot: anything missing from
+      # public-deploy disappears from the live site. Sitemaps, the search
+      # index, and the real robots.txt are produced by the weekly sync
+      # (gitignored, not in this checkout), so mirror the live copies into
+      # the snapshot — otherwise every code deploy wipes them until the
+      # next Monday sync.
       - name: Assemble Hosting public dir
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
         run: |
           rm -rf site/public-deploy
           cp -r site/public site/public-deploy
+          # robots.txt must carry the real SITE_URL (the committed file is a placeholder)
+          printf 'User-agent: *\nAllow: /\nDisallow: /vin/\n\nSitemap: %s/sitemaps/sitemap-index.xml\n' "$SITE_URL" \
+            > site/public-deploy/robots.txt
+          # mirror <url> <dest>: 0 = fetched, 1 = 404 (expected pre-first-sync),
+          # 2 = anything else. Only 404 may be tolerated — deploying without a
+          # file that exists live would wipe it (full-snapshot release), so a
+          # transient network/5xx error must fail the deploy, not skip the file.
+          mirror() {
+            local code
+            code=$(curl -sSL -o "$2" -w '%{http_code}' "$1") || { rm -f "$2"; echo "::error::fetch $1 failed (network)"; return 2; }
+            [ "$code" = "200" ] && return 0
+            rm -f "$2"
+            [ "$code" = "404" ] && return 1
+            echo "::error::fetch $1 returned HTTP $code"
+            return 2
+          }
+          mkdir -p site/public-deploy/sitemaps
+          if mirror "$SITE_URL/sitemaps/sitemap-index.xml" site/public-deploy/sitemaps/sitemap-index.xml; then
+            for f in $(grep -o 'sitemap-[0-9]*\.xml' site/public-deploy/sitemaps/sitemap-index.xml | sort -u); do
+              # a shard the index references must exist — abort rather than
+              # publish an index pointing at 404s
+              mirror "$SITE_URL/sitemaps/$f" "site/public-deploy/sitemaps/$f" || exit 1
+            done
+          else
+            [ "$?" = "1" ] || exit 1
+            echo "no live sitemap index (404, pre-first-sync) — nothing to mirror"
+          fi
+          mirror "$SITE_URL/search-index.json" site/public-deploy/search-index.json || { [ "$?" = "1" ] || exit 1; }
 
       - name: Deploy Hosting
         run: npx --yes firebase-tools@latest deploy --only hosting,firestore:rules --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
