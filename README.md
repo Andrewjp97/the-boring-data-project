@@ -224,6 +224,9 @@ production URLs, apply to AdSense once indexed, then set `PUBLIC_ADSENSE_CLIENT`
 
 ## Future verticals (design only — SPEC Phase 5)
 
-The adapter seam is: a new parser module (`etl/src/etl/parse.py` dataset entry + layout),
-a page-builder module emitting docs into its own collection, and a route group under
-`site/src/pages/`. Candidates: CPSC recalls, FAA registry. Not implemented in v1.
+Designed in [docs/VERTICALS.md](docs/VERTICALS.md): the adapter seam (a new parser +
+normalizer + page-builder feeding the existing `pages.jsonl`/manifest contract, plus a
+route group under `site/src/pages/`), the refactor to do only when a second vertical
+actually lands, candidate analyses for CPSC recalls and the FAA registry/ADs, and the
+go/no-go checklist any candidate must pass. Not implemented in v1 — the shared
+diff/push/sitemaps/CI machinery is already vertical-agnostic by contract.
